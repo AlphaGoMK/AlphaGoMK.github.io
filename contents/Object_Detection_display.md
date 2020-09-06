@@ -48,7 +48,7 @@ CenterNet预测三元组：左上，右下，中心
 二分支：产生corner点并match形成框；产生center点。如果center点在框的central region，计算框，否则删除
 <u>**central region**</u> 确定判定的中心区域的大小：大框偏小，小框偏大，整体线性
 
-![latex_equ](https://latex.codecogs.com/svg.latex?\left\{\begin{array}{l}%20{\operatorname{ctl}_{\mathrm{x}}=\frac{%28n+1%29%20\mathrm{tl}_{\mathrm{x}}+%28n-1%29%20\mathrm{br}_{\mathrm{x}}}{2%20n}}%20\\%20{\operatorname{ctl}_{\mathrm{y}}=\frac{%28n+1%29%20\mathrm{tl}_{\mathrm{y}}+%28n-1%29%20\mathrm{br}_{\mathrm{y}}}{2%20n}}%20\\%20{\operatorname{cbr}_{\mathrm{x}}=\frac{%28n-1%29%20\mathrm{tl}_{\mathrm{x}}+%28n+1%29%20\mathrm{br}_{\mathrm{x}}}{2%20n}}%20\\%20{\operatorname{cbr}_{\mathrm{y}}=\frac{%28n-1%29%20\mathrm{tl}_{\mathrm{y}}+%28n+1%29%20\mathrm{br}_{\mathrm{y}}}{2%20n}}%20\end{array}\right.)
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\left\{\begin{array}{l}%20{\operatorname{ctl}_{\mathrm{x}}=\frac{%28n+1%29%20\mathrm{tl}_{\mathrm{x}}+%28n-1%29%20\mathrm{br}_{\mathrm{x}}}{2%20n}}%20\\%20{\operatorname{ctl}_{\mathrm{y}}=\frac{%28n+1%29%20\mathrm{tl}_{\mathrm{y}}+%28n-1%29%20\mathrm{br}_{\mathrm{y}}}{2%20n}}%20\\%20{\operatorname{cbr}_{\mathrm{x}}=\frac{%28n-1%29%20\mathrm{tl}_{\mathrm{x}}+%28n+1%29%20\mathrm{br}_{\mathrm{x}}}{2%20n}}%20\\%20{\operatorname{cbr}_{\mathrm{y}}=\frac{%28n-1%29%20\mathrm{tl}_{\mathrm{y}}+%28n+1%29%20\mathrm{br}_{\mathrm{y}}}{2%20n}}%20\end{array}\right.{% endraw %})
 N离散变化，过threshold后变系数n。小![latex_equ](https://latex.codecogs.com/svg.latex?\to)threshold![latex_equ](https://latex.codecogs.com/svg.latex?\to)大，3![latex_equ](https://latex.codecogs.com/svg.latex?\to)5
 
 #### Enrich center&corner information
