@@ -413,7 +413,7 @@ Ref: [NMS与soft NMS - 知乎](https://zhuanlan.zhihu.com/p/42018282)
 
 阈值计算过程 ![latex_equ](https://latex.codecogs.com/svg.latex?N_{\mathcal{M}}:=\max%20\left%28N_{t},%20d_{\mathcal{M}}\right%29)
 
-NMS过程 ![latex_equ](https://latex.codecogs.com/svg.latex?s_{i}=\left\{\begin{array}{ll}s_{i},%20&%20\operatorname{iou}\left%28\mathcal{M},%20b_{i}\right%29<N_{\mathcal{M}}%20\\%20s_{i}%20f\left%28\operatorname{iou}\left%28\mathcal{M},%20b_{i}\right%29\right%29,%20&%20\text%20{%20iou%20}\left%28\mathcal{M},%20b_{i}\right%29%20\geq%20N_{\mathcal{M}}\end{array}\right.)
+NMS过程 ![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?s_{i}=\left\{\begin{array}{ll}s_{i},%20&%20\operatorname{iou}\left%28\mathcal{M},%20b_{i}\right%29<N_{\mathcal{M}}%20\\%20s_{i}%20f\left%28\operatorname{iou}\left%28\mathcal{M},%20b_{i}\right%29\right%29,%20&%20\text%20{%20iou%20}\left%28\mathcal{M},%20b_{i}\right%29%20\geq%20N_{\mathcal{M}}\end{array}\right.{% endraw %})
 
 测试时density通过网络`density subnet`预测，objectness map + bbox预测`concat`作为输入，`5x5`卷积(临近物体的信息)
 
@@ -457,7 +457,7 @@ Ref: https://www.starlg.cn/2019/05/20/Adaptive-NMS/
 
 类似`Soft NMS`中不是直接去除box 「hard」，变成对score进行reweight「soft」，构成`Cluster-NMS_S`
 
-![latex_equ](https://latex.codecogs.com/svg.latex?s_{j}=s_{j}%20\prod\limits_{i}%20e^{-\frac{%28\boldsymbol{A}%20\times%20\boldsymbol{X}%29_{i%20j}^{2}}{\sigma}})
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?s_{j}=s_{j}%20\prod\limits_{i}%20e^{-\frac{%28\boldsymbol{A}%20\times%20\boldsymbol{X}%29_{i%20j}^{2}}{\sigma}}{% endraw %})
 
 j和其他box的IoU越大，score降低越多
 
@@ -467,7 +467,7 @@ j和其他box的IoU越大，score降低越多
 
 增加同`DIoU`类似的中心点距离![latex_equ](https://latex.codecogs.com/svg.latex?D)，构成`Cluster-NMS_S+D`
 
-![latex_equ](https://latex.codecogs.com/svg.latex?s_{j}=s_{j}%20\prod\limits_{i}%20\min%20\{e^{-\frac{%28\boldsymbol{A}%20\times%20\boldsymbol{X}%29_{i%20j}^{2}}{\sigma}}+D^{\beta},%201\})
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?s_{j}=s_{j}%20\prod\limits_{i}%20\min%20\{e^{-\frac{%28\boldsymbol{A}%20\times%20\boldsymbol{X}%29_{i%20j}^{2}}{\sigma}}+D^{\beta},%201\}{% endraw %})
 
 #### Weighted NMS + Cluster NMS
 
@@ -497,7 +497,7 @@ conf从高到低，找到IoU>threshold的框，根据IoU进行加权求和，得
 
 训练使用<u>Margin Loss</u>: ![latex_equ](https://latex.codecogs.com/svg.latex?L=\frac{\sum_{i%20\in%20\mathcal{A}}%20\sum_{j%20\in%20\mathcal{A}%20\backslash\{i\}}%20L^{\prime}%28i,%20j%29}{|\mathcal{A}|%20\cdot%28|\mathcal{A}|-1%29})
 
-其中，pairwise loss: ![latex_equ](https://latex.codecogs.com/svg.latex?L^{\prime}%28i,%20j%29=\left\{\begin{array}{ll}\max%20\left%280,\left\|\mathbf{f}_{i},%20\mathbf{f}_{j}\right\|_{2}-%28\beta-\alpha%29\right%29,%20&%20\text%20{%20if%20}%20o%20b%20j%28i%29=o%20b%20j%28j%29%20\\%20\max%20\left%280,%28\beta+\alpha%29-\left\|\mathbf{f}_{i},%20\mathbf{f}_{j}\right\|_{2}\right%29,%20&%20\text%20{%20otherwise%20}\end{array}\right.)
+其中，pairwise loss: ![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?L^{\prime}%28i,%20j%29=\left\{\begin{array}{ll}\max%20\left%280,\left\|\mathbf{f}_{i},%20\mathbf{f}_{j}\right\|_{2}-%28\beta-\alpha%29\right%29,%20&%20\text%20{%20if%20}%20o%20b%20j%28i%29=o%20b%20j%28j%29%20\\%20\max%20\left%280,%28\beta+\alpha%29-\left\|\mathbf{f}_{i},%20\mathbf{f}_{j}\right\|_{2}\right%29,%20&%20\text%20{%20otherwise%20}\end{array}\right.{% endraw %})
 
 ---
 
@@ -552,7 +552,7 @@ Rank all detection bbox on localization confidence.
 使用双线性插值来连续化特征图，任意连续坐标(x,y)处都是连续的
 ![latex_equ](https://latex.codecogs.com/svg.latex?f%28x,y%29=\Sigma_{i,j}IC%28x,y,i,j%29\times%20w_{i,j})
 ![latex_equ](https://latex.codecogs.com/svg.latex?IC%28x,y,i,j%29=max%280,1-|x-i|%29\times%20max%280,1-|y-j|%29)是插值系数，xy连续，ij为坐标像素点。RoI的一个bin表示为左上角和右下角的坐标对。通过二重积分进行池化（加权求和）
-![latex_equ](https://latex.codecogs.com/svg.latex?PrPool%28\{%28x_1,%20y_1%29,\;%28x_2,%20y_2%29\},\;F%29=\frac{\int_{y_1}^{y_2}\int_{x_1}^{x_2}f%28x,y%29dxdy}{%28x_2-x_1%29\times%20%28y_2-y_1%29})
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?PrPool%28\{%28x_1,%20y_1%29,\;%28x_2,%20y_2%29\},\;F%29=\frac{\int_{y_1}^{y_2}\int_{x_1}^{x_2}f%28x,y%29dxdy}{%28x_2-x_1%29\times%20%28y_2-y_1%29}{% endraw %})
 
 ![15689719523883](https://images-1256050009.cos.ap-beijing.myqcloud.com/15689719523883.jpg)
 
@@ -771,7 +771,7 @@ Policy search问题：K=5个sub-policies，每个包含N=2个操作。训练时�
 
 1. **Classification loss**：类别，cond_cls_prob
 
-   ![latex_equ](https://latex.codecogs.com/svg.latex?\sum_{i=0}^{S^{2}}%20\mathbb{1}_{i}^{\mathrm{obj}}%20\sum_{c%20\in%20\text%20{%20classes%20}}\left%28p_{i}%28c%29-\hat{p}_{i}%28c%29\right%29^{2})
+   ![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\sum_{i=0}^{S^{2}}%20\mathbb{1}_{i}^{\mathrm{obj}}%20\sum_{c%20\in%20\text%20{%20classes%20}}\left%28p_{i}%28c%29-\hat{p}_{i}%28c%29\right%29^{2}{% endraw %})
 
 2. **Localization loss**：只计算匹配了gt的grid
 
@@ -913,7 +913,7 @@ DIoU也可用于NMS中DIoU-NMS
 
 ![latex_equ](https://latex.codecogs.com/svg.latex?v=\frac{4}{\pi^2}%28\arctan{\frac{w^{gt}}{h^{gt}}}-\arctan{\frac{w}{h}}%29^2)
 
-![latex_equ](https://latex.codecogs.com/svg.latex?\alpha=\frac{v}{%281-\operatorname{IoU}%29+v})
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\alpha=\frac{v}{%281-\operatorname{IoU}%29+v}{% endraw %})
 
 使用各种IoU loss训练👇
 
@@ -1097,7 +1097,7 @@ resize不同层feature，**取平均**；使用Gaussian **non-local attention**�
 
 ![image-20200325232936319](https://github.com/AlphaGoMK/Collections/tree/master/Notes/Figures/image-20200325232936319.png)
 
-![latex_equ](https://latex.codecogs.com/svg.latex?\frac{\partial%20L_{b}}{\partial%20x}=\left\{\begin{array}{ll}%20\alpha%20\ln%20%28b|x|+1%29%20&%20\text%20{%20if%20}|x|<1%20\\%20\gamma%20&%20\text%20{%20otherwise%20}%20\end{array}\right.)
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\frac{\partial%20L_{b}}{\partial%20x}=\left\{\begin{array}{ll}%20\alpha%20\ln%20%28b|x|+1%29%20&%20\text%20{%20if%20}|x|<1%20\\%20\gamma%20&%20\text%20{%20otherwise%20}%20\end{array}\right.{% endraw %})
 
 👆增强小loss的梯度，大loss的梯度clip。<u>**大小loss样本产生的梯度平衡**</u>
 
@@ -1105,7 +1105,7 @@ resize不同层feature，**取平均**；使用Gaussian **non-local attention**�
 
 积分可得👇
 
-![latex_equ](https://latex.codecogs.com/svg.latex?L_{b}%28x%29=\left\{\begin{array}{ll}%20\frac{\alpha}{b}%28b|x|+1%29%20\ln%20%28b|x|+1%29-\alpha|x|%20&%20\text%20{%20if%20}|x|<1%20\\%20\gamma|x|+C%20&%20\text%20{%20otherwise%20}%20\end{array}\right.)
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?L_{b}%28x%29=\left\{\begin{array}{ll}%20\frac{\alpha}{b}%28b|x|+1%29%20\ln%20%28b|x|+1%29-\alpha|x|%20&%20\text%20{%20if%20}|x|<1%20\\%20\gamma|x|+C%20&%20\text%20{%20otherwise%20}%20\end{array}\right.{% endraw %})
 
 其中![latex_equ](https://latex.codecogs.com/svg.latex?x)为GT和pred的bbox坐标差距，![latex_equ](https://latex.codecogs.com/svg.latex?\gamma)为clip界 (大于![latex_equ](https://latex.codecogs.com/svg.latex?\gamma)，梯度恒定为1)，![latex_equ](https://latex.codecogs.com/svg.latex?\alpha)控制对小loss的梯度增强，![latex_equ](https://latex.codecogs.com/svg.latex?b)为平衡项，求出每个位置loss后mean或sum，即![latex_equ](https://latex.codecogs.com/svg.latex?L_{l%20o%20c}=\sum_{i%20\in\{x,%20y,%20w,%20h\}}%20L_{b}\left%28t_{i}^{u}-v_{i}\right%29)👇
 
@@ -1139,7 +1139,7 @@ resize不同层feature，**取平均**；使用Gaussian **non-local attention**�
 
 ![image-20200326201955046](https://github.com/AlphaGoMK/Collections/tree/master/Notes/Figures/image-20200326201955046.png)
 
-👆使用网络计算偏移量(offsets over the center points)，得到reppoint的点/物体特征表示![latex_equ](https://latex.codecogs.com/svg.latex?\mathcal{R}=\{%28x_k,y_k%29\}^n_{k=1})，n个点特征表示sample points/object的特征。学习![latex_equ](https://latex.codecogs.com/svg.latex?\mathcal{R}_{r}=\left\{\left%28x_{k}+\Delta%20x_{k},%20y_{k}+\Delta%20y_{k}\right%29\right\}_{k=1}^{n})
+👆使用网络计算偏移量(offsets over the center points)，得到reppoint的点/物体特征表示![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\mathcal{R}=\{%28x_k,y_k%29\}^n_{k=1}{% endraw %})，n个点特征表示sample points/object的特征。学习![latex_equ](https://latex.codecogs.com/svg.latex?\mathcal{R}_{r}=\left\{\left%28x_{k}+\Delta%20x_{k},%20y_{k}+\Delta%20y_{k}\right%29\right\}_{k=1}^{n})
 
 👆维护两个RepPoint set，二次refine
 
@@ -1207,13 +1207,13 @@ Ref: https://www.zhihu.com/question/322372759/answer/798327725
 
 对于一个anchor/prior/proposal ![latex_equ](https://latex.codecogs.com/svg.latex?b_i)，预测的GT：![latex_equ](https://latex.codecogs.com/svg.latex?\mathrm{G}\left%28b_{i}\right%29=\left\{g_{j}%20\in%20\mathcal{G}%20|%20\operatorname{IoU}\left%28b_{i},%20g_{j}\right%29%20\geq%20\theta\right\})
 
-预测为set：![latex_equ](https://latex.codecogs.com/svg.latex?\mathrm{P}\left%28b_{i}\right%29=\left\{\left%28\mathbf{c}_{i}^{%281%29},%20\mathbf{l}_{i}^{%281%29}\right%29,\left%28\mathbf{c}_{i}^{%282%29},%20\mathbf{l}_{i}^{%282%29}\right%29,%20\ldots,\left%28\mathbf{c}_{i}^{%28K%29},%20\mathbf{l}_{i}^{%28K%29}\right%29\right\})，![latex_equ](https://latex.codecogs.com/svg.latex?c_i^%28j%29)表示第![latex_equ](https://latex.codecogs.com/svg.latex?i)个anchor预测的第![latex_equ](https://latex.codecogs.com/svg.latex?j)个框的类别和置信度，![latex_equ](https://latex.codecogs.com/svg.latex?l)为位置
+预测为set：![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\mathrm{P}\left%28b_{i}\right%29=\left\{\left%28\mathbf{c}_{i}^{%281%29},%20\mathbf{l}_{i}^{%281%29}\right%29,\left%28\mathbf{c}_{i}^{%282%29},%20\mathbf{l}_{i}^{%282%29}\right%29,%20\ldots,\left%28\mathbf{c}_{i}^{%28K%29},%20\mathbf{l}_{i}^{%28K%29}\right%29\right\}{% endraw %})，![latex_equ](https://latex.codecogs.com/svg.latex?c_i^%28j%29)表示第![latex_equ](https://latex.codecogs.com/svg.latex?i)个anchor预测的第![latex_equ](https://latex.codecogs.com/svg.latex?j)个框的类别和置信度，![latex_equ](https://latex.codecogs.com/svg.latex?l)为位置
 
 匹配时![latex_equ](https://latex.codecogs.com/svg.latex?K)个物体，但预测时仍可能部分预测结果为背景「<u>至多预测![latex_equ](https://latex.codecogs.com/svg.latex?K)个结果</u>」   *是否可以扩展为预测更多？*
 
 训练看作最小化预测集和GT集之间的<u>推土机距离</u> ![latex_equ](https://latex.codecogs.com/svg.latex?\operatorname{EMD}%28P%28b_i%29,G%28b_i%29%29)，和集合中位置无关，与分布有关
 
-![latex_equ](https://latex.codecogs.com/svg.latex?\mathcal{L}\left%28b_{i}\right%29=\min%20_{\pi%20\in%20\Pi}%20\sum_{k=1}^{K}\left[\mathcal{L}_{c%20l%20s}\left%28\mathbf{c}_{i}^{%28k%29},%20g_{\pi_{k}}\right%29+\mathcal{L}_{r%20e%20g}\left%28\mathbf{l}_{i}^{%28k%29},%20g_{\pi_{k}}\right%29\right])
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\mathcal{L}\left%28b_{i}\right%29=\min%20_{\pi%20\in%20\Pi}%20\sum_{k=1}^{K}\left[\mathcal{L}_{c%20l%20s}\left%28\mathbf{c}_{i}^{%28k%29},%20g_{\pi_{k}}\right%29+\mathcal{L}_{r%20e%20g}\left%28\mathbf{l}_{i}^{%28k%29},%20g_{\pi_{k}}\right%29\right]{% endraw %})
 
 预测的背景box计算![latex_equ](https://latex.codecogs.com/svg.latex?\mathcal{L}_{cls})不计算![latex_equ](https://latex.codecogs.com/svg.latex?\mathcal{L}_{reg})
 
@@ -1346,11 +1346,11 @@ VoVNetV2 增加残差连接和SE-block
 
 局部卷积：不同位置**pixel**卷积核不同![latex_equ](https://latex.codecogs.com/svg.latex?W_{u,v,c})
 
-![latex_equ](https://latex.codecogs.com/svg.latex?Y_{u,%20v,%20o}=\sum_{c=1}^{C}%20X_{u,%20v,%20c}%20*%20W_{u,%20v,%20c}^{%28o%29}%20\quad%28u,%20v%29%20\in%20S)
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?Y_{u,%20v,%20o}=\sum_{c=1}^{C}%20X_{u,%20v,%20c}%20*%20W_{u,%20v,%20c}^{%28o%29}%20\quad%28u,%20v%29%20\in%20S{% endraw %})
 
 DRConv：不同区域卷积核不同，同一个区域内共享![latex_equ](https://latex.codecogs.com/svg.latex?W_{t,c})
 
-![latex_equ](https://latex.codecogs.com/svg.latex?Y_{u,%20v,%20g}=\sum_{c=1}^{C}%20X_{u,%20v,%20c}%20*%20W_{t,%20c}^{%28o%29}%20\quad%28u,%20v%29%20\in%20S_{t})
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?Y_{u,%20v,%20g}=\sum_{c=1}^{C}%20X_{u,%20v,%20c}%20*%20W_{t,%20c}^{%28o%29}%20\quad%28u,%20v%29%20\in%20S_{t}{% endraw %})
 
 首先学习划分区域mask，之后在每个区域内进行动态卷积
 
@@ -1400,7 +1400,7 @@ Beta distribution
 
 分类头上使用，增加CE-Loss中错误label的梯度，防止模型too-confident & over-fitting
 
-![latex_equ](https://latex.codecogs.com/svg.latex?q_{i}=\left\{\begin{array}{ll}1-\varepsilon%20&%20\text%20{%20if%20}%20i=y%20\\%20\varepsilon%20/%28K-1%29%20&%20\text%20{%20otherwise%20}\end{array}\right.)
+![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?q_{i}=\left\{\begin{array}{ll}1-\varepsilon%20&%20\text%20{%20if%20}%20i=y%20\\%20\varepsilon%20/%28K-1%29%20&%20\text%20{%20otherwise%20}\end{array}\right.{% endraw %})
 
 #### Data Augmentation
 
