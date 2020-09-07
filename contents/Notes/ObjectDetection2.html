@@ -1,0 +1,387 @@
+<h1 id="object-detection">Object Detection</h1>
+<h2 id="autoassign-differentiable-label-assignment-for-dense-object-detection">AutoAssign: Differentiable Label Assignment for Dense Object Detection</h2>
+<blockquote>
+<p>Label-assignment, 选择正/负样本点(anchor-free)需要动态确定，且正负样本点损失加权。权重：cate+物体计算</p>
+<p>center prior: 训练时固定先验</p>
+<p>(instance) confidence map: 根据数据动态调整</p>
+</blockquote>
+<p>之前空间上采样正负样本的方法为 1. IoU 2. 物体框中心固定区域都为正样本。但存在物体框中部分区域没有物体，且固定区域无法优化 <em>obstacle caused by feature shifting when backgrounds are sampled as positives may decrease the performance.</em></p>
+<p>提出根据category&amp;instance信息动态产生pos/neg weight map [<strong>differentiable/data-driven</strong>]</p>
+<p><img src="Figures/image-20200715142809070.png" alt="image-20200715142809070"></p>
+<p><img src="Figures/image-20200715142902639.png" alt="image-20200715142902639"></p>
+<p>👆更加dynamic</p>
+<p><img src="Figures/image-20200715143039412.png" alt="image-20200715143039412"></p>
+<p>通过Center Weighting + Confidence Weighting得到Weight Map(<img src="https://latex.codecogs.com/svg.latex?w^+,w^-" alt="latex_equ">)</p>
+<h4 id="center-weighting">Center Weighting</h4>
+<p>学习一个category-wise分布，即带参数的Gaussian-shape weighting function，用在FPN的每一层。</p>
+<p><img src="https://latex.codecogs.com/svg.latex?G%28\vec{d}%20\mid%20\vec{\mu},%20\vec{\sigma}%29=e^{\frac{-%28\vec{d}-\vec{\mu}%29^{2}}{2%20\vec{\sigma}^{2}}}" alt="latex_equ">，其中<img src="https://latex.codecogs.com/svg.latex?\vec{d}" alt="latex_equ">为某个位置的xy偏移量，一种类别有一组<img src="https://latex.codecogs.com/svg.latex?\vec{\mu}\;\vec{\sigma}" alt="latex_equ"></p>
+<p>center prior可以<u>增加类别的先验分布信息</u>，防止网络冷启动后出现过拟合（不断优化第一次w高的点）</p>
+<p>由于conf weighting作用的是<u>每个GT-Box中所有点</u>，所以应用center prior时已知类别</p>
+<h4 id="confidence-weighting">Confidence Weighting</h4>
+<p><img src="Figures/%E6%88%AA%E5%B1%8F2020-07-15%20%E4%B8%8B%E5%8D%883.02.53-4796696.png" alt="截屏2020-07-15 下午3.02.53"></p>
+<p>增加Implicit-Objectness分支，抑制false-pos（框内部分点不在物体上）</p>
+<p>训练时分类分支一起训练 <img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_{i}%28\operatorname{cls}\mid\theta%29=\mathcal{P}_{i}%28\operatorname{cls}\mid%20obj,%20\theta%29%20\mathcal{P}_{i}%28\text%20{obj}%20\mid%20\theta%29" alt="latex_equ"></p>
+<p>认为之前固定匹配模型的分类分支为<u>已知点是正样本</u><img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_i%28obj\mid\theta%29=1" alt="latex_equ">，预测点为某个类别的概率，即分类分支的结果为是<img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_i%28cls|obj,\theta%29" alt="latex_equ">条件概率。<img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_i%28cls\mid\theta%29=\mathcal{P}_i%28cls\mid%20obj,\theta%29" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\theta" alt="latex_equ">是参数</p>
+<p>现在改为Impl-Obj分支预测<img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_i%28obj\mid\theta%29" alt="latex_equ">，再和分类分支<img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_{i}%28cls\mid%20obj,%20\theta%29" alt="latex_equ">一起得到<img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_i%28cls\mid\theta%29" alt="latex_equ"></p>
+<p>且增加localization conf作为计算样本权重的依据，通过指数函数将定位准确率转为likelihood<img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_i%28\theta%29=\mathcal{P}_i%28cls\mid\theta%29\mathcal{e}^{-\lambda\mathcal{L}_i^{loc}%28\theta%29}" alt="latex_equ">，在计算loss体现。类似<em>Learning From Noisy Anchors for One-Stage Object Detection</em> 综合考虑分类和定位的性能</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{aligned}%20\mathcal{L}_{i}%28\theta%29%20&amp;=\mathcal{L}_{i}^{c%20l%20s}%28\theta%29+\lambda%20\mathcal{L}_{i}^{l%20o%20c}%28\theta%29%20\\%20&amp;=-\log%20\left%28\mathcal{P}_{i}%28c%20l%20s%20\mid%20\theta%29\right%29+\lambda%20\mathcal{L}_{i}^{l%20o%20c}%28\theta%29%20\\%20&amp;=-\log%20\left%28\mathcal{P}_{i}%28c%20l%20s%20\mid%20\theta%29%20e^{-\lambda%20\mathcal{L}_{i}^{l%20o%20c}%28\theta%29}\right%29%20\\%20&amp;=-\log%20\left%28\mathcal{P}_{i}%28c%20l%20s%20\mid%20\theta%29%20\mathcal{P}_{i}%28loc%20\mid%20\theta%29\right%29%20\\%20&amp;=-\log%20\left%28\mathcal{P}_{i}%28\theta%29\right%29%20\end{aligned}" alt="latex_equ"></p>
+<p>joint conf representation <img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_i%28\theta%29" alt="latex_equ">经过指数计算，增强<img src="https://latex.codecogs.com/svg.latex?C\left%28\mathcal{P}_{i}\right%29=e^{\frac{\mathcal{P}_{i}%28\theta%29}{\tau}}" alt="latex_equ"> （只会有一小部分落在物体上，得分高）</p>
+<h4 id="weight-map">Weight Map</h4>
+<p>对一个<strong>GT框内的点</strong>计算权重，focus on proper loc inside bbox</p>
+<p>融合，求正样本和负样本权重</p>
+<p><img src="https://latex.codecogs.com/svg.latex?w_{i}^{+}=\frac{C\left%28\mathcal{P}_{i}\right%29%20G\left%28\vec{d}_{i}\right%29}{\sum_{j%20\in%20S_{n}}%20C\left%28\mathcal{P}_{i}\right%29%20G\left%28\vec{d}_{i}\right%29}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?w_{i}^{-}=1-f\left%28\frac{1}{1-\mathrm{i}%20\mathrm{ou}_{i}}\right%29" alt="latex_equ">，f normalize to [0,1]，<u>分数为sharpen权重分布</u></p>
+<p>Loss函数<img src="https://latex.codecogs.com/svg.latex?\mathcal{L}%28\theta%29=-\sum_{n=1}^{N}%20\log%20\left%28\sum_{i%20\in%20S_{n}}%20w_{i}^{+}%20\mathcal{P}_{i}^{+}\right%29-\sum_{j%20\in%20S}%20\log%20\left%28w_{j}^{-}%20\mathcal{P}_{j}^{-}\right%29" alt="latex_equ"></p>
+<p>👆学习策略为一个box的训练，对一个box构建<img src="https://latex.codecogs.com/svg.latex?w^+/w^-" alt="latex_equ">训练</p>
+<p>不同尺度热力图可视化👇</p>
+<p><img src="Figures/image-20200715150853109.png" alt="image-20200715150853109"></p>
+<p>👇ImplicitObjectness抑制噪声效果显著</p>
+<p><img src="Figures/image-20200807112856084.png" alt="image-20200807112856084"></p>
+<p>基于FCOS，提升2-3点，mAP=52.1%</p>
+<hr>
+<h2 id="towards-accurate-one-stage-object-detection-with-ap-loss">Towards Accurate One-Stage Object Detection with AP-Loss</h2>
+<blockquote>
+<p>Label-assignment</p>
+</blockquote>
+<p>正负样本不均衡问题 <em>It is observed that the classification metric could be very high for a trivial solution which predicts negative label for almost all candidate boxes, while the detection performance is poor</em></p>
+<p>&lt;img src=&quot;Figures/image-20200716164022633.png&quot; alt=&quot;image-20200716164022633&quot; style=&quot;zoom:50%;&quot; /&gt;</p>
+<p>负样本多，正样本分类结果对loss贡献少，对检测acc影响小</p>
+<p>提出直接对AP(average precision)优化：AP Loss</p>
+<p><u>把分类分支问题看为一个rank问题，计算AP Loss，采用error-driven方式优化</u></p>
+<h4 id="ranking-task-ap-loss">Ranking Task &amp; AP Loss</h4>
+<p>因为计算AP过程实际是对预测结果排序，再计算，所以把分类问题看作一个ranking问题：对于每一类，所有的正样本点排在负样本点之前（更高分）</p>
+<p>AP-Loss的primary term为：<img src="https://latex.codecogs.com/svg.latex?%283%29\;\;L_{i%20j}%28\boldsymbol{x}%29=\frac{H\left%28x_{i%20j}\right%29}{1+\sum_{k%20\in%20\mathcal{P}%20\cup%20\mathcal{N},%20k%20\neq%20i}%20H\left%28x_{i%20k}\right%29}=L_{i%20j}" alt="latex_equ"> . 其中<img src="https://latex.codecogs.com/svg.latex?x_{ij}" alt="latex_equ">为两点的排序差距：<img src="https://latex.codecogs.com/svg.latex?\forall%20i,%20j,%20\quad%20x_{i%20j}=-\left%28s_{i}-s_{j}\right%29" alt="latex_equ">将分类预测的分数转化为排序x，作为损失函数的输入，H为Heaviside step function阶跃函数：<img src="https://latex.codecogs.com/svg.latex?H%28x%29=\left\{\begin{array}{ll}0%20&amp;%20x&lt;0%20\\%201%20&amp;%20x%20\geq%200\end{array}\right." alt="latex_equ"></p>
+<p>即只有j排在i之前时，才对<img src="https://latex.codecogs.com/svg.latex?L_{ij}" alt="latex_equ">有贡献。GT定义为<img src="https://latex.codecogs.com/svg.latex?\forall%20i,%20j,%20\quad%20y_{i%20j}=\mathbf{1}_{t_{i}=1,%20t_{j}=0}" alt="latex_equ"></p>
+<p>AP-Loss为：</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{L}_{A%20P}=1-\mathrm{AP}=1-\frac{1}{|\mathcal{P}|}%20\sum_{i%20\in%20\mathcal{P}}%20\frac{\operatorname{rank}^{+}%28i%29}{\operatorname{rank}%28i%29}" alt="latex_equ"><br><img src="https://latex.codecogs.com/svg.latex?=1-\frac{1}{|\mathcal{P}|}%20\sum_{i%20\in%20\mathcal{P}}%20\frac{1+\sum_{j%20\in%20\mathcal{P},%20j%20\neq%20i}%20H\left%28x_{i%20j}\right%29}{1+\sum_{j%20\in%20\mathcal{P},%20j%20\neq%20i}%20H\left%28x_{i%20j}\right%29+\sum_{j%20\in%20\mathcal{N}}%20H\left%28x_{i%20j}\right%29}=\frac{1}{\mathcal{P}}\left%28\mathcal{P}-\sum_{i%20\in%20\mathcal{P}}%20\frac{1+\sum_{j%20\in%20\mathcal{P},%20j%20\neq%20i}%20H\left%28x_{i%20j}\right%29}{1+\sum_{j%20\in%20\mathcal{P},%20j%20\neq%20i}%20H\left%28x_{i%20j}\right%29+\sum_{j%20\in%20\mathcal{N}}%20H\left%28x_{i%20j}\right%29}\right%29=\frac{1}{\mathcal{P}}\sum_{i\in\mathcal{P}}\frac{\sum_{j\in\mathcal{N}}H%28x_{ij}%29}{1+\sum_{j\in\mathcal{P},j\neq%20i}H%28x_{ij}%29+\sum_{j\in\mathcal{N}}H%28x_{ij}%29}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?=\frac{1}{|\mathcal{P}|}%20\sum_{i%20\in%20\mathcal{P}}%20\sum_{j%20\in%20\mathcal{N}}%20L_{i%20j}=\frac{1}{|\mathcal{P}|}%20\sum_{i,%20j}%20L_{i%20j}%20\cdot%20y_{i%20j}=\frac{1}{|\mathcal{P}|}\langle\boldsymbol{L}%28\boldsymbol{x}%29,%20\boldsymbol{y}\rangle" alt="latex_equ"> （由于只有i j分属正负时<img src="https://latex.codecogs.com/svg.latex?L_{ij}" alt="latex_equ">非0，同<img src="https://latex.codecogs.com/svg.latex?y" alt="latex_equ">的定义）</p>
+<p>即为计算任意一个正样本P和一个负样本N的primary term。正样本之间没有，正负样本之间有损失</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\min%20_{\boldsymbol{\theta}}%20\mathcal{L}_{A%20P}%28\boldsymbol{\theta}%29=1-\operatorname{AP}%28\boldsymbol{\theta}%29=\frac{1}{|\mathcal{P}|}\langle\boldsymbol{L}%28\boldsymbol{x}%28\boldsymbol{\theta}%29%29,%20\boldsymbol{y}\rangle" alt="latex_equ"></p>
+<h4 id="error-driven-update">Error-driven Update</h4>
+<p><em>the update is directly derived from the difference between desired output and current output</em>：<img src="https://latex.codecogs.com/svg.latex?\Delta%20x_{i%20j}=L^*_{i,j}-L_{i%20j}" alt="latex_equ"></p>
+<p>最小化AP-Loss到0，即最佳优化方向<img src="https://latex.codecogs.com/svg.latex?\Delta%20x_{i%20j}=-L_{i%20j}%20\cdot%20y_{i%20j}" alt="latex_equ">，y控制是否对于loss有贡献</p>
+<p>优化时，衡量改变参数<img src="https://latex.codecogs.com/svg.latex?\theta" alt="latex_equ">后x的变化与最佳优化方向之间的相似度，以及L2正则</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\arg%20\min%20_{\Delta%20\boldsymbol{\theta}}\left\{-\left\langle\Delta%20\boldsymbol{x},%20\boldsymbol{x}\left%28\boldsymbol{\theta}^{%28n%29}+\Delta%20\boldsymbol{\theta}\right%29-\boldsymbol{x}\left%28\boldsymbol{\theta}^{%28n%29}\right%29\right\rangle+\lambda\|\Delta%20\boldsymbol{\theta}\|_{2}^{2}\right\}" alt="latex_equ">，一阶泰勒展开算参数的优化方向</p>
+<p>由于参数变化<img src="https://latex.codecogs.com/svg.latex?\mathcal{\theta}^{%28n+1%29}-\mathcal{\theta}^{%28n%29}" alt="latex_equ">在BP过程中不变，所以最佳优化方向<img src="https://latex.codecogs.com/svg.latex?\Delta%20x_{ij}" alt="latex_equ">即为x的梯度，链式求s的梯度</p>
+<p><img src="https://latex.codecogs.com/svg.latex?%2813%29\;\;\begin{aligned}%20g_{i}&amp;=-\sum_{j,%20k}%20\Delta%20x_{j%20k}%20\cdot%20\frac{\partial%20x_{j%20k}}{\partial%20s_{i}}=\sum_{j}%20\Delta%20x_{i%20j}-\sum_{j}%20\Delta%20x_{j%20i}%20\\%20&amp;=\sum_{j}%20L_{j%20i}%20\cdot%20y_{j%20i}-\sum_{j}%20L_{i%20j}%20\cdot%20y_{i%20j}%20\end{aligned}" alt="latex_equ"></p>
+<p>&lt;img src=&quot;Figures/image-20200716173631622.png&quot; alt=&quot;image-20200716173631622&quot; style=&quot;zoom:50%;&quot; /&gt;</p>
+<p>性能基于RetinaNet提升3个点</p>
+<hr>
+<h2 id="dr-loss-improving-object-detection-by-distributional-ranking">DR Loss: Improving Object Detection by Distributional Ranking</h2>
+<blockquote>
+<p>基于AP-Loss，采用类似SVM方式对正负样本排序（margin）</p>
+<p>增加对正负样本分布的改变 reweight</p>
+</blockquote>
+<p>&lt;img src=&quot;Figures/image-20200716173939029.png&quot; alt=&quot;image-20200716173939029&quot; style=&quot;zoom:50%;&quot; /&gt;</p>
+<h2 id="scale-equalizing-pyramid-convolution-for-object-detection-sepc-">Scale-Equalizing Pyramid Convolution for Object Detection (SEPC)</h2>
+<blockquote>
+<p>采用3D卷积进行多尺度特征融合，不同层融合权重不同</p>
+</blockquote>
+<p>特征金字塔不同层之间存在semantic gap，之前采用feature fusion解决但没有提取intrinsic property</p>
+<p><strong>Pyramid Conv</strong> <code>PConv</code>: <strong>在尺度维上 (不同层特征图)</strong> 做卷积（like spatial conv），3D conv</p>
+<p>选择三层，底层采用stride卷积，中间普通卷积，上层bilinear upsampling。控制不同层的不同stride来获得相同大小的输出，并相加。时间成本为1.5倍</p>
+<p><img src="Figures/image-20200704214032431.png" alt="image-20200704214032431"></p>
+<p>BN修改为整个特征金字塔层共享统计量，效果类似sync_bn，同步不同位置上的统计量，统计范围更广</p>
+<p>BN = standardization(<img src="https://latex.codecogs.com/svg.latex?\mu" alt="latex_equ">,<img src="https://latex.codecogs.com/svg.latex?\sigma" alt="latex_equ">) + scale_shift(<img src="https://latex.codecogs.com/svg.latex?\gamma" alt="latex_equ">,<img src="https://latex.codecogs.com/svg.latex?\beta" alt="latex_equ">)，统计卷积的bn为每张特征图，即在channel维的统计（channel个统计量），<strong>统计不同样本在同一个channel上所有wh点的</strong>batch statistics <img src="https://latex.codecogs.com/svg.latex?\mu" alt="latex_equ">和<img src="https://latex.codecogs.com/svg.latex?\sigma" alt="latex_equ">（reduce at batch dimension）。每张特征图一对parameters <img src="https://latex.codecogs.com/svg.latex?\gamma" alt="latex_equ">和<img src="https://latex.codecogs.com/svg.latex?\beta" alt="latex_equ"> （<a href="https://zhuanlan.zhihu.com/p/43200897）">https://zhuanlan.zhihu.com/p/43200897）</a></p>
+<p>可以证明PConv能够提取Gaussian Pyramid(不同高斯模糊核对图片处理) 尺度不变的特征，即如果原图物体尺度变化，则可通过对PConv提取的特征shift得到改变后物体的特征 <em><u>论文中有证明</u></em></p>
+<p><strong>Scale-Equalizing Pyramid Conv</strong> <code>SEPC</code>: PConv的升级版，通过deformable conv实现对不同尺度特征的对齐。</p>
+<pre><code class="lang-python">def pconv_module_forward(x, conv2D_list):
+    # x: input feature list [p3,p4,p5,p6,p7] # conv2D_list: conv2D module list,
+    # [nn.Conv2D(stride=2),nn.Conv2D(),nn.Conv2D()]
+    out_x = []
+    for level in range(len(x)):
+        tmp = conv2D_list[1](x[level])
+        if level &gt; 0:
+            tmp += conv2D_list[0](x[level-1])
+        if level &lt; len(x) - 1:
+            tmp += Upsample(conv2D_list[2](x[level+1])
+        out_x.append(tmp) 
+    return out_x
+</code></pre>
+<p>最底层普通卷积kernel size不变，其他层使用deformable conv</p>
+<p><img src="Figures/image-20200704213956083.png" alt="image-20200704213956083"></p>
+<p>因为feature pyramid中由于backbone非线性操作，相对于gaussian pyramid特征不对齐，所以只通过dilation提取特征不全面，改用d-conv</p>
+<p><em>SEPC is an improved version of pconv, to relax the discrepancy of feature pyramid from a Gaussian pyramid by aligning the feature map of higher layers with the lowest layer</em></p>
+<p>底层特征采用普通卷积，卷积结果作为权重向上层的d-conv共享（卷积结果作为d-conv的一个输入求offset，类似CentripetalNet中）</p>
+<p>SEPC模块用于取代RetinaNet的detection head的卷积模块</p>
+<p>本质为一种pix-wise or fine-grained 的feature fusion，多尺度特征图通过卷积操作进行特征融合</p>
+<p><img src="Figures/image-20200704214335943.png" alt="image-20200704214335943"></p>
+<p>性能提升明显</p>
+<p><img src="Figures/image-20200704214411536.png" alt="image-20200704214411536"></p>
+<hr>
+<h2 id="psconv-squeezing-feature-pyramid-into-one-compact-poly-scale-convolutional-layer">PSConv: Squeezing Feature Pyramid into One Compact Poly-Scale Convolutional Layer</h2>
+<blockquote>
+<p>提取多尺度特征</p>
+</blockquote>
+<p>一个卷积核不同通道不同dilation rate（不同颜色表示不同dilate）</p>
+<p><img src="Figures/image-20200717174956433.png" alt="image-20200717174956433"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{H}_{c,%20x,%20y}=\sum_{k=1}^{C_{i%20n}}%20\sum_{i=-\frac{K-1}{2}}^{\frac{K-1}{2}}%20\sum_{j=-\frac{K-1}{2}}^{\frac{K-1}{2}}%20\mathcal{G}_{c,%20k,%20i,%20j}%20\mathcal{F}_{k,%20x+i%20D_{%28c,%20k%29},%20y+j%20D_{%28c,%20k%29}}" alt="latex_equ"></p>
+<p>扩张率在in通道上循环交替排布（👆T=4循环排列），在out通道维度上也循环排列</p>
+<p><img src="Figures/image-20200717175208977.png" alt="image-20200717175208977"></p>
+<p>Fast RCNN替换backbone中所有卷积，FPN neck不变，提升2点左右</p>
+<h2 id="rethinking-classification-and-localization-for-object-detection-double-head-rcnn-">Rethinking Classification and Localization for Object Detection (Double-Head RCNN)</h2>
+<blockquote>
+<p>检测头进行双路分支改进</p>
+</blockquote>
+<p>二阶段检测器中，对proposal处理的传统检测头采用conv层，或者fast rcnn使用fc层处理</p>
+<p><img src="Figures/image-20200706183720979.png" alt="image-20200706183720979"></p>
+<p>fc层作为head，由于全连接操作不同位置权重不共享，对于位置更加敏感（小位置变化大的输出结果变化），适合分类</p>
+<p>conv层作为head，由于卷积操作不同位置权重共享，适合回归整个物体（coco2018结果表明可以使用conv层作为bbox的预测头）</p>
+<p><img src="Figures/image-20200706185341027.png" alt="image-20200706185341027"></p>
+<p>分析conv作为head的分类回归结果👇</p>
+<p><img src="Figures/image-20200706184401851.png" alt="image-20200706184401851"></p>
+<p>fc作为head的分类回归结果👆</p>
+<ol>
+<li>分类：fc作为head时，其高iou部分分类结果明显比conv作为head好。计算Pearson correlation coefficient👇fc-head的score-iou关系大于conv-head的score-iou关系</li>
+</ol>
+<p><img src="Figures/image-20200706184732698.png" alt="image-20200706184732698"></p>
+<ol start="2">
+<li>定位：conv-head略好于fc-head</li>
+</ol>
+<p>可视化关联关系：conv-head采用得到的特征图cos距离，7x7grid，每个点产生7x7大小的和其他任意点的关联矩阵；fc-head对fc层权重变换输出7x7特征图</p>
+<p><img src="Figures/image-20200706185049024.png" alt="image-20200706185049024"></p>
+<p>conv-head计算的点和周围关联关系大</p>
+<h4 id="double-head-rcnn">Double head RCNN</h4>
+<p>两个分支，conv-head用于回归，fc-head用于分类</p>
+<p><img src="Figures/image-20200706185402627.png" alt="image-20200706185402627"></p>
+<p>改进：extend，训练时利用conv-head的分类损失和fc-head的回归损失进行监督(unfocused task supervision)</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{L}^{f%20c}=\lambda^{f%20c}%20L_{c%20l%20s}^{f%20c}+\left%281-\lambda^{f%20c}\right%29%20L_{r%20e%20g}^{f%20c}" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\mathcal{L}^{c%20o%20n%20v}=\left%281-\lambda^{c%20o%20n%20v}\right%29%20L_{c%20l%20s}^{c%20o%20n%20v}+\lambda^{c%20o%20n%20v}%20L_{r%20e%20g}^{c%20o%20n%20v}" alt="latex_equ"></p>
+<p>同时对分类分数进行二分支融合(classifiers are complimentary)</p>
+<p><img src="Figures/image-20200706185811416.png" alt="image-20200706185811416"></p>
+<p>FPN+2.5~3.8 val AP</p>
+<hr>
+<h2 id="d2det-towards-high-quality-object-detection-and-instance-segmentation">D2Det: Towards High Quality Object Detection and Instance Segmentation</h2>
+<blockquote>
+<p>一阶段回归分支操作移植到二阶段</p>
+<p>deformable pooling + weighted pooling</p>
+</blockquote>
+<p><img src="Figures/image-20200706234538094.png" alt="image-20200706234538094"></p>
+<h4 id="dense-local-regression">Dense local regression</h4>
+<p>把RoI看作类似一阶段中的特征图。之前二阶段检测器对于一个RoI只预测一个框 (FC+预测)，改成RoI中每个点都预测一个框(dense prediction)。预测中间点到box上下左右的距离 (FCOS)</p>
+<p>增加binary overlap prediction (<img src="https://latex.codecogs.com/svg.latex?\hat{m}" alt="latex_equ">)，对RoI和GT重叠部分为1，只有为1的点的预测结果有效。</p>
+<p><u>类似</u>一阶段中每点预测bbox，预测IoU/objectness</p>
+<h4 id="discriminative-roi-pooling">Discriminative RoI pooling</h4>
+<p><u>deformable pooling + weighted pooling</u></p>
+<p>pooling的weighted权重通过输入特征操作得到（类似self-attention）👇W为计算的权重</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\tilde{F}=W%28F%29%20\odot%20F" alt="latex_equ"></p>
+<p><img src="Figures/image-20200707000247234.png" alt="image-20200707000247234">性能提升较明显: multi-scale 50.1</p>
+<hr>
+<h2 id="nms-by-representative-region-towards-crowded-pedestrian-detection-by-proposal-pairing-pbm-">NMS by Representative Region: Towards Crowded Pedestrian Detection by Proposal Pairing (PBM)</h2>
+<blockquote>
+<p>基于bi-box regre. 根据vis框进行NMS</p>
+</blockquote>
+<p>行人检测中重叠，类内重叠Replusion Loss和AggLoss惩罚两个人中间的box，但是box的重叠仍然会导致在NMS过程中被误删</p>
+<p>Adaptive NMS中GT-density和Pred-density的inconsistency</p>
+<p><img src="Figures/image-20200707105643820.png" alt="image-20200707105643820"></p>
+<p>GT框不密集，但Pred-box是密集的。Adaptive NMS预测GT的密集程度，而NMS和Pred的密集程度有关。👆预测绿框不密集，所以红框不会被保留</p>
+<h4 id="nms-by-representative-region">NMS by representative region</h4>
+<p>通过计算visible部分的IoU而不是full部分的IoU进行NMS</p>
+<p>重叠不同物体的检测框full-IoU大，vis-IoU小。重叠同一物体full-IoU和vis-IoU都大 <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> vis-IoU判别</p>
+<p><img src="Figures/image-20200707132234249.png" alt="image-20200707132234249"></p>
+<h4 id="paired-bbox-faster-rcnn">Paired BBox Faster RCNN</h4>
+<p>Paired RPN + Paired Proposal Feature Extractor +  Pair RCNN</p>
+<h5 id="paired-rpn">Paired RPN</h5>
+<p>GT标注为pair Q=(F,V)，全身框和可见框</p>
+<p><strong>从一个anchor</strong>回归出full和visible的proposal（为了inherent correspondence）</p>
+<p>anchor和一对GT标注的匹配标准：</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{IoU}%28\mathrm{A},%20\mathrm{F}%29%20\geq%20\alpha_{1}" alt="latex_equ"> and <img src="https://latex.codecogs.com/svg.latex?\operatorname{IoF}%28\mathrm{A},%20\mathrm{V}%29%20\geq%20\beta_{1}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{IoU}%28\mathrm{A},%20\mathrm{F}%29=\frac{\operatorname{Area}%28\mathrm{A}%20\cap%20\mathrm{F}%29}{\operatorname{Area}%28\mathrm{A}%20\cup%20\mathrm{F}%29},\;\;\operatorname{IoF}%28\mathrm{A},%20\mathrm{V}%29=\frac{\operatorname{Area}%28\mathrm{A}%20\cap%20\mathrm{V}%29}{\operatorname{Area}%28\mathrm{V}%29}" alt="latex_equ"></p>
+<p>full和vis的回归训练策略同bi-box regression</p>
+<h5 id="paired-proposal-feature-extractor">Paired Proposal Feature Extractor</h5>
+<p>融合full/vis两个proposal的特征</p>
+<p><img src="Figures/image-20200707133322847.png" alt="image-20200707133322847"></p>
+<p>&lt;font color=&quot;#00dd00&quot;&gt;绿色分支&lt;/font&gt;+&lt;font color=&quot;dd0000&quot;&gt;红色分支&lt;/font&gt;：简单的concat两个proposal的特征向量</p>
+<p>&lt;font color=&quot;00dd00&quot;&gt;绿色分支&lt;/font&gt;+黑色分支：visible region attention/mask，构建visible部分的0/1 mask，与full特征<img src="https://latex.codecogs.com/svg.latex?F_f" alt="latex_equ">点乘得<img src="https://latex.codecogs.com/svg.latex?F_m" alt="latex_equ">，再concat <img src="https://latex.codecogs.com/svg.latex?F_m" alt="latex_equ">和<img src="https://latex.codecogs.com/svg.latex?F_v" alt="latex_equ"></p>
+<h5 id="paired-rcnn">Paired RCNN</h5>
+<p>融合特征和proposal作为输入，两个分支分别预测full和vis的检测框</p>
+<p>proposal和一对GT的匹配标准：</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{IoU}\left%28\mathrm{P}_{\mathrm{f}},%20\mathrm{F}\right%29%20\geq%20\alpha_{2}" alt="latex_equ"> and <img src="https://latex.codecogs.com/svg.latex?\operatorname{IoU}\left%28\mathrm{P}_{\mathrm{v}},%20\mathrm{V}\right%29%20\geq%20\beta_{2}" alt="latex_equ"></p>
+<p>性能提升明显</p>
+<p><img src="Figures/image-20200707134837180.png" alt="image-20200707134837180"></p>
+<hr>
+<h2 id="hit-detector-hierarchical-trinity-architecture-search-for-object-detection">Hit-Detector: Hierarchical Trinity Architecture Search for Object Detection</h2>
+<blockquote>
+<p>NAS整体搜索，基于FBNet</p>
+</blockquote>
+<p><img src="Figures/image-20200708170606633.png" alt="image-20200708170606633"></p>
+<p>二阶段检测器：backbone + neck(feature pyramid &amp; fusing) + RPN(fixed) + Head</p>
+<p>NATS和DetNAS搜索backbone，NAS-FPN搜FPN，Auto-FPN搜fusing和Head</p>
+<p>单独搜索效果较差，采用整体每个部件(backbone: <img src="https://latex.codecogs.com/svg.latex?\alpha" alt="latex_equ">, neck: <img src="https://latex.codecogs.com/svg.latex?\beta" alt="latex_equ">, head: <img src="https://latex.codecogs.com/svg.latex?\gamma" alt="latex_equ">)一起搜索，<strong>end-to-end search</strong></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\alpha^{*},%20\beta^{*},%20\gamma^{*}=\underset{\alpha,%20\beta,%20\gamma}{\arg%20\min%20}%20\mathcal{L}_{v%20a%20l}^{d%20e%20t}\left%28\alpha,%20\beta,%20\gamma,%20w^{*}%28\alpha,%20\beta,%20\gamma%29\right%29=\underset{\alpha,%20\beta,%20\gamma}{\arg%20\min%20}%20\mathcal{L}_{v%20a%20l}^{d%20e%20t}\left%28\alpha,%20\beta,%20\gamma,%20\underset{w}{\arg%20\min%20}%20\mathcal{L}_{t%20r%20a%20i%20n}^{d%20e%20t}%28\alpha,%20\beta,%20\gamma,%20w%29\right%29" alt="latex_equ"></p>
+<p>每个component采用逐层搜索，构建每个操作用在每一层的得分矩阵<img src="https://latex.codecogs.com/svg.latex?\alpha" alt="latex_equ">，选择概率</p>
+<p>对一个操作用在不同层的得分进行L2<strong>正则化(column-space regularization)</strong>，减少得分的数值大小：</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\min%20_{\alpha}%20f%28\alpha%29+\mu%20\min%20_{i}%28\sqrt{\sum_{l=1}^{L}%20\alpha_{l,%20i}^{2}}%29" alt="latex_equ"></p>
+<p>选择<img src="https://latex.codecogs.com/svg.latex?\alpha_{l,i}" alt="latex_equ">最大max的一个操作，但为了可微采用softmax来选择(continuous relaxation)</p>
+<p>搜索backbone时搜索空间的节点计算(differentiable)：<img src="https://latex.codecogs.com/svg.latex?x_{l}=\sum_{o%20\in%20\mathcal{O}_{b}}%20\frac{\exp%20\left%28\alpha_{l}^{o}\right%29}{\sum_{o^{\prime}%20\in%20\mathcal{O}_{b}}%20\exp%20\left%28\alpha_{l}^{o^{\prime}}\right%29}%20o\left%28x_{l-1}\right%29" alt="latex_equ"></p>
+<p>搜索neck时搜lateral connection，搜索Head时搜fc预测前的block</p>
+<p>优化时增加FLOPS约束：<img src="https://latex.codecogs.com/svg.latex?\mathrm{C}%28\alpha%29=\sum_{l}%20\sum_{o%20\in%20\mathcal{O}_{b}}%20\alpha_{l}^{o}%20\mathrm{FLOPs}%28o,%20l%29" alt="latex_equ"></p>
+<p>首先固定<img src="https://latex.codecogs.com/svg.latex?\{\alpha,\beta,\gamma\}" alt="latex_equ">在一半的数据上训练求<img src="https://latex.codecogs.com/svg.latex?\partial%20\mathcal{L}/\partial%20\mathcal{w}" alt="latex_equ">更新<img src="https://latex.codecogs.com/svg.latex?w" alt="latex_equ">，再固定<img src="https://latex.codecogs.com/svg.latex?w" alt="latex_equ">在剩下的数据上训练求<img src="https://latex.codecogs.com/svg.latex?\partial\mathcal{L}/\partial\alpha,\partial\mathcal{L}/\partial\beta,\partial\mathcal{L}/\partial\gamma" alt="latex_equ">更新架构<img src="https://latex.codecogs.com/svg.latex?\alpha,\beta,\gamma" alt="latex_equ"></p>
+<hr>
+<h2 id="saccadenet-a-fast-and-accurate-object-detector">SaccadeNet: A Fast and Accurate Object Detector</h2>
+<p><img src="Figures/image-20200708225553326.png" alt="image-20200708225553326"></p>
+<p><u>Center Attentive Module</u>产生中心点和类别；<u>Attention Transitive Module</u>产生wh；<u>Aggregation Attentive Module</u>融合两分支的特征（双线性插值）和预测，并对预测框进行refine；<u>Corner Attentive Module</u>只有一个block产生角点预测，用于backbone监督信号，测试时去掉。</p>
+<p>相比CenterNet改进：1. 通过Aggregation进行二步refine 2. 增加corner分支的监督信号有助于对边缘的检测（帮助预测wh的分支） 3. L1作为box训练损失</p>
+<p><img src="Figures/image-20200708230331922.png" alt="image-20200708230331922"></p>
+<p>👆<u>test-dev</u>上性能，速度提升明显，快于yolov3</p>
+<hr>
+<h2 id="learning-from-noisy-anchors-for-one-stage-object-detection">Learning from Noisy Anchors for One-stage Object Detection</h2>
+<blockquote>
+<p>loss函数增加权重，选择回归分类分数高的框增大其loss贡献</p>
+<p>对loss学习时的修改</p>
+</blockquote>
+<p>之前的检测器评价anchor好坏使用IoU，harsh的划分导致噪声和不易训练</p>
+<p>&lt;img src=&quot;Figures/image-20200711120826876.png&quot; alt=&quot;image-20200711120826876&quot; style=&quot;zoom:30%;&quot; /&gt;</p>
+<p>拖车：IoU大但包含其他物体；长颈鹿：包含关键特征但IoU小</p>
+<p>以IoU作为正负样本划分会导致噪声，需要根据<u>回归分类结果(cleanliness)</u>划分</p>
+<p><strong>分类上</strong>采用对cleanliness的预测代替之前根据IoU的pos/neg的0/1预测，RPN的<strong>soft-label</strong>，<u>类似IoU-Net的预测IoU/soft-objectness</u></p>
+<p><img src="https://latex.codecogs.com/svg.latex?c=\left\{\begin{array}{ll}\alpha%20\cdot%20\text{loc\_acc}+%281-\alpha%29%20\cdot%20\text%20{%20cls\_conf%20}%20&amp;%20\text%20{%20for%20}%20b%20\in%20\mathcal{A}_{p%20o%20s}%20\\%200%20&amp;%20\text%20{%20for%20}%20b%20\in%20\mathcal{A}_{n%20e%20g}\end{array}\right." alt="latex_equ"></p>
+<p>对按IoU划分的<img src="https://latex.codecogs.com/svg.latex?\mathcal{A}_{pos}" alt="latex_equ">中部分较高IoU的anchor计算cleanliness，即回归分类的性能</p>
+<p>稳定训练，前几个iter采用anchor-gt的IoU而不是预测结果的IoU计算c</p>
+<p><img src="https://latex.codecogs.com/svg.latex?L_{c%20l%20s}%20=\sum_{i}^{\mathcal{A}_{p%20o%20s}}%20r_{i}%20\operatorname{BCE}\left%28p_{i},%20c_{i}\right%29+\sum_{j}^{\mathcal{A}_{n%20e%20g}}%20\operatorname{BCE}\left%28p_{j},%20c_{j}\right%29" alt="latex_equ">，用于RPN或objectness预测</p>
+<p><strong>定位上</strong>采用根据c<strong>对<img src="https://latex.codecogs.com/svg.latex?\mathcal{A}_{pos}" alt="latex_equ">中</strong>anchor计算<strong>reweight</strong> r，对anchor回归<u>损失加权</u>。<img src="https://latex.codecogs.com/svg.latex?\operatorname{loc\_a}" alt="latex_equ">为box和<strong>匹配到的</strong>GT的IoU（匹配用最大IoU方法）</p>
+<p><img src="https://latex.codecogs.com/svg.latex?r=\left%28\alpha\cdot%20f\left%28\text{loc\_a}\right%29+%281-\alpha%29%20\cdot%20f\left%28\text{loc\_c}\right%29\right%29^{\gamma}" alt="latex_equ">，其中<img src="https://latex.codecogs.com/svg.latex?f%28x%29=\frac{1}{1-x},\;\gamma=1" alt="latex_equ">，为增大variance，并将<img src="https://latex.codecogs.com/svg.latex?r" alt="latex_equ">均值正则化到1</p>
+<p><img src="https://latex.codecogs.com/svg.latex?%20L_{r%20e%20g}%20=\sum_{i}^{\mathcal{A}_{p%20o%20s}}%20r_{i}%20\operatorname{smooth}_{-}%20\ell_{1}" alt="latex_equ"></p>
+<p>&lt;img src=&quot;Figures/image-20200711123828365.png&quot; alt=&quot;image-20200711123828365&quot; style=&quot;zoom:50%;&quot; /&gt;</p>
+<hr>
+<h2 id="cspnet-a-new-backbone-that-can-enhance-learning-capability-of-cnn">CSPNet: A New Backbone that can Enhance Learning Capability of CNN</h2>
+<blockquote>
+<p>使用卷积层截断梯度，减少直接相连，防止梯度重复计算</p>
+</blockquote>
+<p>densenet中不断的concat会让梯度反传时后面的梯度不断传到前面，计算量大，重复计算</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{aligned}%20x_{1}%20&amp;=w_{1}%20*%20x_{0}%20\\%20x_{2}%20&amp;=w_{2}%20*\left[x_{0},%20x_{1}\right]%20\\%20&amp;%20\vdots%20\\%20x_{k}%20&amp;=w_{k}%20*\left[x_{0},%20x_{1},%20\ldots,%20x_{k-1}\right]%20\end{aligned}" alt="latex_equ"></p>
+<p>反传</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{aligned}%20w_{1}^{\prime}%20&amp;=f_{1}\left%28w_{1},%20\left\{%20g_{0}\right\}\right%29%20\\%20w_{2}^{\prime}%20&amp;=f_{2}\left%28w_{2},\left\{g_{0},%20g_{1}\right\}\right%29%20\\%20w_{k}^{\prime}%20&amp;=f_{k}\left%28w_{k},\left\{g_{0},g_{1},%20\ldots,%20g_{k-1}\right\}\right%29%20\end{aligned}" alt="latex_equ"></p>
+<p>例如在最后一层计算过程中，由于和前面层直接连接，梯度会一直回传到w1</p>
+<p>提出：<strong>Partial Dense Block</strong> 输入特征channel上分为两部分<img src="https://latex.codecogs.com/svg.latex?\left[x_0^\prime,\;x_0^{\prime\prime}\right]" alt="latex_equ">，一部分直接相连，另外部分dense block。<strong>Partial Transition Layer</strong> 融合时采用transition层截断梯度的传播</p>
+<p><img src="Figures/image-20200724223413132.png" alt="image-20200724223413132"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{aligned}%20x_{k}%20&amp;=w_{k}%20*\left[x_{0}^{\prime\prime},%20x_{1},%20\ldots,%20x_{k-1}\right]%20\\%20x_{T}%20&amp;=w_{T}%20*\left[x_{0}^{\prime\prime},%20x_{1},%20\ldots,%20x_{k}\right]%20\\%20x_{U}%20&amp;=w_{U}%20*\left[x_{0}^{\prime},%20x_{T}\right]%20\\%20w_{k}^{\prime}%20&amp;=f_{k}\left%28w_{k},\left\{g_{0}^{\prime%20\prime},%20g_{1},%20\ldots,%20g_{k-1}\right\}\right%29%20\\%20w_{T}^{\prime}%20&amp;=f_{T}\left%28w_{T},\left\{g_{0}^{\prime%20\prime},%20g_{1},%20\ldots,%20g_{k}\right\}\right%29%20\\%20w_{U}^{\prime}%20&amp;=f_{U}\left%28w_{U},\left\{g_{0}^\prime,%20g_{T}\right\}\right%29%20\end{aligned}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?w_{U}" alt="latex_equ">的梯度只传递到<img src="https://latex.codecogs.com/svg.latex?w_T" alt="latex_equ">，之后梯度全部从<img src="https://latex.codecogs.com/svg.latex?w_T" alt="latex_equ">开始传</p>
+<p><img src="Figures/image-20200724222732419.png" alt="image-20200724222732419"></p>
+<p>Fusion first能截断更多梯度传递（如后续部分到part1的梯度），但性能较差；采用fusion last</p>
+<p>提出EFM，临近层特征融合，防止distract</p>
+<p><img src="Figures/image-20200724223519751.png" alt="image-20200724223519751"></p>
+<p>检测任务性能提升明显</p>
+<hr>
+<h2 id="feature-pyramid-transformer">Feature Pyramid Transformer</h2>
+<blockquote>
+<p>采用transformer/self-attention方式进行多尺度特征融合/交互</p>
+</blockquote>
+<p>Non-local只对同一尺度的不同空间特征交互，改进space+scale</p>
+<p><img src="Figures/image-20200818143118059.png" alt="image-20200818143118059"></p>
+<p>不同层的不同空间位置的物体interaction（co-occurring in multiple scales）</p>
+<h4 id="non-local">Non-local</h4>
+<p>用于一张特征图不同位置特征。看作self-attention，输入<img src="https://latex.codecogs.com/svg.latex?\mathbf{q}_i=f_q%28\mathbf{X}_i%29" alt="latex_equ">表示<img src="https://latex.codecogs.com/svg.latex?i" alt="latex_equ">位置<u>经过<img src="https://latex.codecogs.com/svg.latex?f_q" alt="latex_equ">提取后</u>的query，<img src="https://latex.codecogs.com/svg.latex?\mathbf{k}_j=f_k%28\mathbf{X}_j%29" alt="latex_equ">为key，<img src="https://latex.codecogs.com/svg.latex?\mathbf{v}_j=f_v%28\mathbf{X}_j%29" alt="latex_equ">为<img src="https://latex.codecogs.com/svg.latex?j" alt="latex_equ">位置的value</p>
+<p>先dot product计算i-query和j-key相似度，softmax标准化得到权重，和j-value相乘的到结果</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{aligned}%20\text%20{%20Input:%20}%20&amp;%20\mathbf{q}_{i},%20\mathbf{k}_{j},%20\mathbf{v}_{j}%20\\%20\text%20{%20Similarity:%20}%20&amp;%20s_{i,%20j}=F_{\text%20{sim}}\left%28\mathbf{q}_{i},%20\mathbf{k}_{j}\right%29%20\\%20\text%20{%20Weight:%20}%20&amp;%20w_{i,%20j}=F_{\text%20{nom}}\left%28s_{i,%20j}\right%29%20\\%20\text%20{%20Output:%20}%20&amp;%20\tilde{\mathbf{X}}_{i}=F_{\text%20{mul}}\left%28w_{i,%20j},%20\mathbf{v}_{j}\right%29,%20\end{aligned}" alt="latex_equ"></p>
+<h4 id="self-transformer-st-">Self-Transformer (ST)</h4>
+<p>用于一张图上co-occurring物体特征。把query和key分成<img src="https://latex.codecogs.com/svg.latex?N" alt="latex_equ">份，每部分计算相似度<img src="https://latex.codecogs.com/svg.latex?s_{i,%20j}^{n}=F_{s%20i%20m}\left%28\mathbf{q}_{i,%20n},%20\mathbf{k}_{j,%20n}\right%29" alt="latex_equ">，使用Mixture of Softmax作为标准化函数（加权求和<img src="https://latex.codecogs.com/svg.latex?\pi_n" alt="latex_equ">）</p>
+<p><img src="https://latex.codecogs.com/svg.latex?w_{i,j}%20=%20F_{\operatorname{mos}}%28s_{i,%20j}^{n}%29=\sum_{n=1}^{\mathcal{N}}%20\pi_{n}%20\frac{\exp%20%28s_{i,%20j}^{n}%29}{\sum_{j}%20\exp%20%28s_{i,%20j}^{n}%29}" alt="latex_equ"></p>
+<p>&lt;img src=&quot;Figures/image-20200818145143482.png&quot; alt=&quot;image-20200818145143482&quot; style=&quot;zoom:50%;&quot; /&gt;</p>
+<h4 id="grounding-transformer-gt-">Grounding Transformer (GT)</h4>
+<p>top-down融合，ground高层concept特征到低层pixel特征，高层<img src="https://latex.codecogs.com/svg.latex?k\;v" alt="latex_equ">低层<img src="https://latex.codecogs.com/svg.latex?q" alt="latex_equ"></p>
+<p>采用负欧式距离计算不同层之间特征相似度 <img src="https://latex.codecogs.com/svg.latex?F_{\text%20{eud}}\left%28\mathbf{q}_{i},%20\mathbf{k}_{j}\right%29=-\left\|\mathbf{q}_{i}-\mathbf{k}_{j}\right\|^{2}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathbf{q}_i=f_q%28\mathbf{X}_i^f%29" alt="latex_equ">表示<img src="https://latex.codecogs.com/svg.latex?f" alt="latex_equ">层<img src="https://latex.codecogs.com/svg.latex?i" alt="latex_equ">位置的特征，<img src="https://latex.codecogs.com/svg.latex?\mathbf{k}_j=f_K%28\mathbf{X}_j^c%29" alt="latex_equ">表示<img src="https://latex.codecogs.com/svg.latex?c" alt="latex_equ">层<img src="https://latex.codecogs.com/svg.latex?j" alt="latex_equ">位置，计算的到<img src="https://latex.codecogs.com/svg.latex?\mathbf{\hat{X}}_i^f" alt="latex_equ"></p>
+<p>分割任务需要局部信息，传统采用直接相加，而用GT会带来全局信息，提出<strong>Locality-constrained Grounding Transformer</strong>，<img src="https://latex.codecogs.com/svg.latex?\mathbf{q}_i" alt="latex_equ">只和一部分<img src="https://latex.codecogs.com/svg.latex?\mathbf{k}_j\;\mathbf{v}_j" alt="latex_equ">交互</p>
+<p>&lt;img src=&quot;Figures/image-20200818145429855.png&quot; alt=&quot;image-20200818145429855&quot; style=&quot;zoom:50%;&quot; /&gt;</p>
+<h4 id="rendering-transformer-rt-">Rendering Transformer (RT)</h4>
+<p>bottom-up, rendering high-level concept with low-level pixels</p>
+<p>低层的<img src="https://latex.codecogs.com/svg.latex?\mathbf{K}" alt="latex_equ">和<img src="https://latex.codecogs.com/svg.latex?\mathbf{V}" alt="latex_equ">，高层为<img src="https://latex.codecogs.com/svg.latex?\mathbf{Q}" alt="latex_equ"></p>
+<p> <img src="https://latex.codecogs.com/svg.latex?\mathbf{K}" alt="latex_equ">首先GAP计算为权重<img src="https://latex.codecogs.com/svg.latex?\mathbf{w}" alt="latex_equ">，权重<img src="https://latex.codecogs.com/svg.latex?\mathbf{w}" alt="latex_equ">再和<img src="https://latex.codecogs.com/svg.latex?\mathbf{Q}" alt="latex_equ">相乘refine，最后和downsample (conv+stride)的<img src="https://latex.codecogs.com/svg.latex?\mathbf{V}" alt="latex_equ">相加</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{aligned}%20\text%20{%20Input:%20}%20&amp;%20\mathbf{Q},%20\mathbf{K},%20\mathbf{V}%20\\%20\text%20{%20Weight:%20}%20&amp;%20\mathbf{w}=G%20A%20P%28\mathbf{K}%29%20\\%20\text%20{%20Weight%20Query:%20}%20&amp;%20\mathbf{Q}_{a%20t%20t}=F_{a%20t%20t}%28\mathbf{Q},%20\mathbf{w}%29%20\\%20\text{Down-sampled%20Value:%20}%20&amp;%20\mathbf{V}_{d%20o%20w}=F_{sconv}%28\mathbf{V}%29\\%20\text{Output:%20}%20&amp;%20\hat{\mathbf{X}}^{c}=F_{a%20d%20d}\left%28F_{\text%20{conv%20}}\left%28\mathbf{Q}_{a%20t%20t}\right%29,%20\mathbf{V}_{\text%20{dow}}\right%29\end{aligned}" alt="latex_equ"></p>
+<h4 id="-">总体架构</h4>
+<p>resnet，faster rcnn head</p>
+<p><img src="Figures/image-20200818150612705.png" alt="image-20200818150612705"></p>
+<p>高层计算用于GT的特征，低层计算用于RT的特征，transformer融合的到新特征，concat</p>
+<p>参数量，计算量增加大</p>
+<hr>
+<h2 id="borderdet-border-feature-for-dense-object-detection">BorderDet: Border Feature for Dense Object Detection</h2>
+<blockquote>
+<p>explicit border information</p>
+</blockquote>
+<p><img src="Figures/image-20200819230010228.png" alt="image-20200819230010228"></p>
+<p>borderdet增强了边缘的特征</p>
+<h4 id="border-align">Border Align</h4>
+<p>原始特征通道数为C，构建5C通道的特征，表示上下左右特征和原始点的特征。输入coarse box reg的bbox。</p>
+<p>对于每个ij点，4C分别选择其对应预测框的边上响应最大的特征作为这个点的输出特征（+原始特征=5C x W x H特征图）</p>
+<p><img src="https://latex.codecogs.com/svg.latex?F_{c}%28i,%20j%29=\left\{\begin{array}{ll}I_{c}%28i,%20j%29%20&amp;%200%20\leq%20c&lt;C%20\\%20\max%20_{0%20\leq%20k%20\leq%20N-1}\left%28I_{c}\left%28x_{0},%20y_{0}+\frac{k%20h}{N}\right%29\right%29%20&amp;%20C%20\leq%20c&lt;2%20C%20\\%20\max%20_{0%20\leq%20k%20\leq%20N-1}\left%28I_{c}\left%28x_{0}+\frac{k%20w}{N},%20y_{0}\right%29\right%29%20&amp;%202%20C%20\leq%20c&lt;3%20C%20\\%20\max%20_{0%20\leq%20k%20\leq%20N-1}\left%28I_{c}\left%28x_{1},%20y_{0}+\frac{k%20h}{N}\right%29\right%29%20&amp;%203%20C%20\leq%20c&lt;4%20C%20\\%20\max%20_{0%20\leq%20k%20\leq%20N-1}\left%28I_{c}\left%28x_{0}+\frac{k%20w}{N},%20y_{1}\right%29\right%29%20&amp;%204%20C%20\leq%20c&lt;5%20C\end{array}\right." alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?%28i,j%29" alt="latex_equ">的coarse预测结果为<img src="https://latex.codecogs.com/svg.latex?%28x_0,y_0,x_1,y_1%29" alt="latex_equ"></p>
+<p><img src="Figures/image-20200819231021412.png" alt="image-20200819231021412"></p>
+<p><img src="Figures/image-20200819231044269.png" alt="image-20200819231044269"></p>
+<p><strong>Border Alignment Module</strong>对特征升维，BorderAlign，降维👇</p>
+<p><img src="Figures/image-20200819231203928.png" alt="image-20200819231203928"></p>
+<p>BorderDet分别在定位和分类分支使用BAM，BAM使用定位分支的第一步的定位结果，再去refine，组合成为最后输出👇</p>
+<p>&lt;img src=&quot;Figures/image-20200819231428705.png&quot; alt=&quot;image-20200819231428705&quot; style=&quot;zoom:50%;&quot; /&gt;</p>
+<hr>
+<h2 id="spinenet-learning-scale-permuted-backbone-for-recognition-and-localization">SpineNet: Learning Scale-Permuted Backbone for Recognition and Localization</h2>
+<blockquote>
+<p>NAS+检测，encoder+decoder结构不好 (scale decreased model)</p>
+<p>尺度增大减小，不同尺度特征连接</p>
+</blockquote>
+<p>提出scale-permuted model，保证：1. 特征图尺度可以随时增大减小 2. 不同尺度的特征可以连接进行融合</p>
+<p>直接搜索整个网络，而不是分别搜索backbone和fpn</p>
+<p><img src="Figures/image-20200820204545461.png" alt="image-20200820204545461"></p>
+<p>逐步替换resnet👇，红色为输出层，可以看作<strong>backbone+FPN</strong></p>
+<p><img src="Figures/image-20200820205947836.png" alt="image-20200820205947836"></p>
+<p>Multi-scale, DropBlock, stochastic depth, swish activation</p>
+<p>性能提升明显 mAP=52.1</p>
+<hr>
+<h2 id="dually-supervised-feature-pyramid-for-object-detection-and-segmentation">Dually Supervised Feature Pyramid for Object Detection and Segmentation</h2>
+<blockquote>
+<p>FPN top-down和botton-up两次都预测监督算loss</p>
+<p>拆分cls和reg head</p>
+</blockquote>
+<ol>
+<li><p><img src="Figures/image-20200823190552173.png" alt="image-20200823190552173"></p>
+</li>
+<li><p><img src="Figures/image-20200823190617471.png" alt="image-20200823190617471"></p>
+</li>
+</ol>
+<hr>
+<h2 id="pyramidal-convolution-rethinking-convolutional-neural-networks-for-visual-recognition">Pyramidal Convolution: Rethinking Convolutional Neural Networks for Visual Recognition</h2>
+<blockquote>
+<p>一个卷积拆分为多个不同receptive field的分组卷积</p>
+</blockquote>
+<p><img src="Figures/image-20200831204426110.png" alt="image-20200831204426110"></p>
+<p>Bottom-up: 感受野逐渐增大，kernel深度<img src="https://latex.codecogs.com/svg.latex?FM_{out-i}" alt="latex_equ">逐渐减小</p>
+<p>kernel depth (输出通道数): <img src="https://latex.codecogs.com/svg.latex?\left\{F%20M_{i},%20\frac{F%20M_{i}}{\left%28\frac{K_{2}^{2}}{K_{1}^{2}}\right%29},%20\frac{F%20M_{i}}{\left%28\frac{K_{3}^{2}}{K_{1}^{2}}\right%29},%20\ldots,%20\frac{F%20M_{i}}{\left%28\frac{K_{n}^{2}}{K_{1}^2}\right%29}\right\}" alt="latex_equ"></p>
+<p>对SSD模型有提升</p>
+<hr>
+<h2 id="generalized-focal-loss-learning-qualified-and-distributed-bounding-boxes-for-dense-object-detection">Generalized Focal Loss: Learning Qualified and Distributed Bounding Boxes for Dense Object Detection</h2>
+<blockquote>
+</blockquote>
+<ol>
+<li>训练时cls-score和iou/objectness-score单独预测但测试时直接相乘</li>
+<li>bbox没有建模uncertainty</li>
+</ol>
+<h4 id="qfl">QFL</h4>
+<p><img src="Figures/image-20200905160302886.png" alt="image-20200905160302886"></p>
+<p>👆IoU(quality)和cls-score不match，👇独立预测</p>
+<p><img src="Figures/image-20200905160358215.png" alt="image-20200905160358215"></p>
+<p><img src="Figures/image-20200905160432718.png" alt="image-20200905160432718"></p>
+<p>👆传统为冲击函数(Dirac delta dist.)，无法建模不确定性</p>
+<p>提出预测分类-质量联合表示（smooth label），离散label，将Focal Loss的优化改 <img src="https://latex.codecogs.com/svg.latex?\mathbf{Q%20F%20L}%28\sigma%29=-|y-\sigma|^{\beta}%28%281-y%29%20\log%20%281-\sigma%29+y%20\log%20%28\sigma%29%29" alt="latex_equ"> 「展开pos+neg」</p>
+<h4 id="dfl">DFL</h4>
+<p><img src="Figures/image-20200906105358216.png" alt="image-20200906105358216"></p>
+<p>👆之前是冲击函数，只有标注y出概率最大，其他为0，对于不确定的边界没有监督</p>
+<p><img src="Figures/image-20200906110136608.png" alt="image-20200906110136608"></p>
+<p>👆不确定边界 bottom，双峰</p>
+<p>&lt;img src=&quot;Figures/image-20200906110316101.png&quot; alt=&quot;image-20200906110316101&quot; style=&quot;zoom:50%;&quot; /&gt;</p>
+<p>传统 <img src="https://latex.codecogs.com/svg.latex?\hat{y}=\int_{-\infty}^{+\infty}%20\delta%28x-y%29%20x%20\mathrm{d}%20x" alt="latex_equ">，冲击函数，只预测一点</p>
+<p>提出通过分布<img src="https://latex.codecogs.com/svg.latex?P" alt="latex_equ">预测label <img src="https://latex.codecogs.com/svg.latex?\hat{y}=\int_{-\infty}^{+\infty}%20P%28x%29%20x%20\mathrm{d}%20x=\int_{y_{0}}^{y_{n}}%20P%28x%29%20x%20\mathrm{d}%20x" alt="latex_equ"> 分布的积分</p>
+<p>从冲击函数，到先验高斯分布，到任意分布，建模<strong>随机性</strong></p>
+<p>&lt;img src=&quot;Figures/image-20200906110336213.png&quot; alt=&quot;image-20200906110336213&quot; style=&quot;zoom:50%;&quot; /&gt;</p>
+<p>离散化 <img src="https://latex.codecogs.com/svg.latex?\hat{y}=\sum_{i=0}^{n}%20P\left%28y_{i}\right%29%20y_{i}" alt="latex_equ">，<img src="https://latex.codecogs.com/svg.latex?\sum_{i=0}^nP%28y_i%29=1" alt="latex_equ"></p>
+<p>减少计算量，真实分布与标注位置距离不会太远，只计算左右最近两个<img src="https://latex.codecogs.com/svg.latex?y_l,\;y_r" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\hat{y}=\sum_{j=0}^{n}%20P\left%28y_{j}\right%29%20y_{j}=\mathcal{S}_{i}%20y_{i}+\mathcal{S}_{i+1}%20y_{i+1}=\frac{y_{i+1}-y}{y_{i+1}-y_{i}}%20y_{i}+\frac{y-y_{i}}{y_{i+1}-y_{i}}%20y_{i+1}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathbf{D%20F%20L}\left%28\mathcal{S}_{i},%20\mathcal{S}_{i+1}\right%29=-\left%28\left%28y_{i+1}-y\right%29%20\log%20\left%28\mathcal{S}_{i}\right%29+\left%28y-y_{i}\right%29%20\log%20\left%28\mathcal{S}_{i+1}\right%29\right%29" alt="latex_equ"></p>
+<p>最后预测为左右最近两个位置的线性组合 <img src="https://latex.codecogs.com/svg.latex?\hat{y}=y_l*p_{y_l}+y_r*p_{y_r}\;\left%28p_{y_l}+p_{y_r}=1\right%29" alt="latex_equ"></p>
+<h4 id="gfl">GFL</h4>
+<p>QFL和DFL的统一表示 Generalized Focal Loss</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathbf{G%20F%20L}\left%28p_{y_{l}},%20p_{y_{r}}\right%29=-\left|y-\left%28y_{l}%20p_{y_{l}}+y_{r}%20p_{y_{r}}\right%29\right|^{\beta}\left%28\left%28y_{r}-y\right%29%20\log%20\left%28p_{y_{l}}\right%29+\left%28y-y_{l}\right%29%20\log%20\left%28p_{y_{r}}\right%29\right%29" alt="latex_equ"></p>
+<p>训练损失</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{L}=\frac{1}{N_{p%20o%20s}}%20\sum_{z}%20\mathcal{L}_{\mathcal{QFL}}+\frac{1}{N_{p%20o%20s}}%20\sum_{z}%20\mathbf{1}_{\left\{c_{z}^{*}&gt;0\right\}}\left%28\lambda_{0}%20\mathcal{L}_{\mathcal{Bbox}}+\lambda_{1}%20\mathcal{L}_{\mathcal{DFL}}\right%29" alt="latex_equ"></p>
+<p>对所有位置<img src="https://latex.codecogs.com/svg.latex?z" alt="latex_equ">计算QFL，对正样本<img src="https://latex.codecogs.com/svg.latex?c^*_z&gt;0" alt="latex_equ">计算GIoU loss和DFL</p>
+<p>DFL和IoU-loss优化bbox回归，分别建模uncertainty和IoU最大；QFL优化分类分支</p>
+<p>对大目标提升效果好，+1 mAP</p>
+<p>Ref: <a href="https://zhuanlan.zhihu.com/p/147691786">https://zhuanlan.zhihu.com/p/147691786</a></p>
+<hr>
