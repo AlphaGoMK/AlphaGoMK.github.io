@@ -1,0 +1,238 @@
+<h1 id="video-object-detection">Video Object Detection</h1>
+<blockquote>
+<p>All I know about video det&amp;track.<br>These two topics are <strong>NOT</strong> identical.<br>Feature extraction based 🆚 Metrics learning based</p>
+</blockquote>
+<h2 id="trendings">Trendings</h2>
+<p><u><strong>LSTM</strong></u><br>mostly used in video <strong>understanding</strong>, eg: video abnormal detection, event recognization, find content…<br>Extract global action &amp; scene information</p>
+<p><u><strong>Detect+Track</strong></u></p>
+<blockquote>
+<p>How to leverage temporal information?</p>
+</blockquote>
+<p>Tracking: 提模版特征，特征图匹配，找<br>Detection in video: </p>
+<ol>
+<li><p>frame by frame</p>
+</li>
+<li><p>使用temporal information作为<u><strong>类别</strong></u>判断的依据<br>使用LSTM传递时间信息（<strong>any context information?</strong>）</p>
+</li>
+<li><p>使用temporal预测可能出现的位置，<u><strong>不确定性</strong></u><br>Fuse 检测位置+预测位置 with uncertainty<br>Multi hypothesis tracking</p>
+</li>
+</ol>
+<p><u>Detect to Track and Track to Detect Papers:</u></p>
+<p><em>Detect to Track and Track to Detect</em> <a href="https://github.com/feichtenhofer/Detect-Track">https://github.com/feichtenhofer/Detect-Track</a><br><em>Integrated Object Detection and Tracking with Tracklet-Conditioned Detection</em></p>
+<p><u><strong>video object segmentation</strong></u> hot topic.    <strong>datasets</strong>: youtube-VOS, DAVIS</p>
+<ol>
+<li><em>Spatiotemporal CNN for Video Object Segmentation</em> use <strong>LSTM</strong>, two branch, <strong>attention mechanism</strong></li>
+<li><em>See More, Know More: Unsupervised Video Object Segmentation With Co-Attention Siamese Networks</em>  apply <strong>co-attention</strong></li>
+<li><em>Fast User-Guided Video Object Segmentation by Interaction-And-Propagation Networks</em></li>
+<li><em>RVOS: End-To-End Recurrent Network for Video Object Segmentation</em></li>
+<li><em>BubbleNets: Learning to Select the Guidance Frame in Video Object Segmentation by Deep Sorting Frames</em>        does not have to be <strong>first</strong> frame, and <strong>select</strong> the best frame in the training sets, <strong>ranking frame</strong> mechanism</li>
+<li><em>FEELVOS: Fast End-To-End Embedding Learning for Video Object Segmentation</em>    use <strong>pixel-wise embedding</strong> and global&amp;local <strong>matching</strong> mechanism to <strong>transfer</strong> the information from first and previous to current frame</li>
+<li><em>Object Discovery in Videos as Foreground Motion Clustering</em>    model the VOS problem as foreground motion clustering, <strong>cluster foreground pixel into different object</strong>. Use RNN to learn embedding of fore-pixel trajectory, add correspondence of pixels in frames.</li>
+<li>MHP-VOS: Multiple Hypotheses Propagation for Video Object Segmentation_    <strong>multiple hypothesis tracking</strong></li>
+</ol>
+<p><u><strong>Re-ID in video</strong></u><br><em>Attribute-Driven Feature Disentangling and Temporal Aggregation for Video Person Re-Identification</em>        <strong>attribute</strong>-driven feature disentangling &amp; frame <strong>re-weighting</strong><br><em>VRSTC: Occlusion-Free Video Person Re-Identification</em>    use temporal information to <strong>recover</strong> occluded frame</p>
+<p><u><strong>fusion</strong></u> spatial and temporal feature, using <strong>weighted sum</strong>, optical flow<br><em>Accel: A Corrective Fusion Network for Efficient Semantic Segmentation on Video</em></p>
+<p><u><strong>unsupervised manner</strong></u> add other training signal</p>
+<p><u><strong>weakly-supervised manner</strong></u> use motion and video clue to generate more precise <strong>proposals</strong>.<br><em>You Reap What You Sow: Using Videos to Generate High Precision Object Proposals for Weakly-Supervised Object Detection</em> </p>
+<p><u><strong>graph convolution network</strong></u> perform temporal reasoning</p>
+<p><u><strong>downsampling</strong></u> is sometimes beneficial in terms of accuracy. By means of 1) reducing unnecessary details    2) resize the too-large objects and increase confidence <em>Adascale: Towards Real-time video object detection using adaptive scaling</em> </p>
+<p><u><strong>utilize temporal information</strong></u> 1. <strong>wrap</strong> temporal info with feature to generate future feature     2. for partial <strong>occlusion</strong>, motion <strong>blur</strong> in video</p>
+<p><u><strong>iteratively refine</strong></u><br><em>STEP: Spatio-Temporal Progressive Learning for Video Action Detection</em><br>refine the proposal to action, step by step. Spatial-temporal: spatial displacement + action tube(temporal info)</p>
+<h2 id="datasets">Datasets</h2>
+<ol>
+<li>ImageNet VID: <a href="http://image-net.org/challenges/LSVRC/2017/#vid">ILSVRC2017</a><br>30 categories<br>2015:<br><em>train</em>     1952 snippets, 405014 (186358+218656) images<br><em>test</em>     458 snippets, 127618 images<br><em>val</em>     281 snippets, 64698 images<br>2017:<br><em>train</em>     3862 snippets, 1122397 images<br><em>test</em>     937 snippets, 315176 images<br><em>val</em>     555 snippets, 176126 images</li>
+<li>Youtube-BB<br>5.6M bounding boxes<br>240k snippets    (380k in paper, about 19s long)<br>23 categories, <em>NONE</em> category for unseen category<br>Annotate video with 1 frame per second</li>
+<li>UA-DETRAC</li>
+<li>UAVDT</li>
+<li>MOT challenge (Design for MOT)</li>
+</ol>
+<hr>
+<h2 id="sotas">SOTAs</h2>
+<p><em>Integrated Object Detection and Tracking with Tracklet-Conditioned Detection</em><br> <a href="https://paperswithcode.com/paper/integrated-object-detection-and-tracking-with">Tracklet-Conditioned Detection+DCNv2+FGFA</a><br>mAP=83.5 </p>
+<p>Integrate tracking in detection not post processing<br>Compute <strong>embeddings</strong> of tracking trajectory with detection box, embeddings-weighted <strong>sum</strong> trajectory category <strong>confidence</strong> with detect category confidence. </p>
+<p>Weight = f(embeddings)<br>Update trajectory confidence with new + old<br>Class confidence = trajectory confidence + det confidence<br>Output = weighted-sum(weights*Class confidence)</p>
+<p><strong>Category(only)</strong> is determined jointly weighted by last trajectory category and detect box category</p>
+<p><u><strong>code</strong></u> released <a href="https://paperswithcode.com/paper/flow-guided-feature-aggregation-for-video">Flow-Guided Feature Aggregation for Video Object Detection</a><br>mAP=80.1, 2017<br>code released</p>
+<h2 id="thinkings">Thinkings</h2>
+<ol>
+<li><u><strong>No keyframe</strong></u>  use LSTM to <strong>directly</strong> generate detection result<br>Input image -&gt; <strong>every frame</strong>, LSTM to hidden layer and output bbox.</li>
+<li><u><strong>Keyframe</strong></u>  select only keyframe for deep and warp to generate interval frame’s feature map (based on <strong>optical flow</strong>)<br>👆 How to get feature map with low cost</li>
+</ol>
+<hr>
+<p>👇 How to get box with previous information </p>
+<ol start="3">
+<li><u><strong>Tracking based</strong><u>  detect by tracking and tracking by detect</li>
+</ol>
+<h4 id="detection-and-tracking">Detection and Tracking</h4>
+<p>做video detection <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> 避开tracking：物体不动，分类，3D框，使用LSTM特征传播（一帧效果差，多帧序列变好）<br>静态图片detection</p>
+<blockquote>
+<p>Why temporal information is not leveraged in tracking?  </p>
+</blockquote>
+<p>难点：帧间信息，temporal信息的高效传递<br>传递清晰信息，防止<u><strong>motion blur</strong></u><br><u><strong>tubelet</strong></u></p>
+<h2 id="topics-in-workshop">Topics in Workshop</h2>
+<p>-- <strong>Large scale</strong> surveillance video: <a href="http://gigavision.cn/">GigaVision</a></p>
+<p>— Autonomous driving: <a href="http://wad.ai/2019/challenge.html">Workshop on autonomous driving</a> <u><strong>3D bounding box</strong></u> Baidu Apollos</p>
+<p>— <strong>Aerial</strong> image (remote sensor): <a href="https://captain-whu.github.io/DOAI2019/cfp.html">Detecting Objects in Aerial Images (DOAI)</a><br>难点：1. Scale variance    2. Small object densely distributed        3. Arbitrary orientation </p>
+<p>— <strong>UAV</strong>ision:  <a href="https://sites.google.com/site/uavision2019/home">https://sites.google.com/site/uavision2019/home</a> <u><strong>UAV</strong></u>     1920x1080, 15m, 2min, <em>no classification</em></p>
+<p>— <strong>MOT</strong>: <a href="https://motchallenge.net/workshops/bmtt2019/index.html">BMTT MOTChallenge 2019</a></p>
+<p>— <strong>ReId</strong>, Multi-target multi-camera tracking: <a href="https://reid-mct.github.io/2019/">Target Re-identification and Multi-Target Multi-Camera Tracking</a></p>
+<p>— <strong>Autonomous driving</strong>: <a href="https://sites.google.com/view/wad2019/challenge">https://sites.google.com/view/wad2019/challenge</a><br>D2-city: 10k video, 1k for tracking, HD<br>BDD100k: 100k video, nano on keyframe, 40s, 720p 30fps <a href="https://interestingengineering.com/you-can-now-download-the-worlds-largest-self-driving-dataset">You Can Now Download the World’s Largest Self-Driving Dataset</a><br>nuScenes: 1.4M frames, <u><strong>3D box annotation</strong></u><br>Other autonomous driving datasets: Oxford Robotcar, TorontoCity, KITTI, <em>Apollo Scape</em> (1M), <em>Waymo Open Dataset</em> (16.7h, 600k frame, 22m 2D-bbox)  <a href="https://scale.com/open-datasets">https://scale.com/open-datasets</a> </p>
+<h2 id="papers-at-eccv18">Papers at ECCV18</h2>
+<p><strong>Temporal information for Classifying</strong> <em>Multi-Fiber Networks for Video Recognization (ECCV18)</em><br><strong>All</strong> <em>Fully Motion-Aware Network for Video Object Detection</em><br><em>Video Object Detection with an Aligned Spatial-Temporal Memory</em><br><strong>Hard example mining</strong> <em>Unsupervised Hard Example Mining from Videos for Improved Object Detection</em><br><strong>Sampling?</strong> <em>Object Detection in Video with Spatiotemporal Sampling Networks</em><br><em>3D Tracking &amp; Trajectory</em> <em>3D Vehicle Trajectory Reconstruction in Monocular Video Data Using Environment Structure Constraints</em></p>
+<blockquote>
+<p>RCNN -&gt; Fast RCNN: 使用RoI pooling代替resize，只计算一次特征图(RoI projection)，多任务训练(bbox regre.和classif.一起训练)<br>Fast RCNN -&gt; Faster RCNN: 使用RPN代替selective search  </p>
+</blockquote>
+<p><img src="Figures/6F235DE5-4774-4527-9FC9-F8EAF8252AEE.png" alt=""><br>一阶段相比二阶段少了RoI pooling过程，拿到框直接在整张图的特征图上分类回归，而不在框中进行。导致可能特征偏移问题</p>
+<hr>
+<h1 id="papers">Papers</h1>
+<h2 id="object-detection-in-video-with-saptiotemporal-sampling-networks">Object Detection in Video with Saptiotemporal Sampling Networks</h2>
+<blockquote>
+<p>使用类似FGFA的方法，但是增加deformable卷积，简化求其他帧feature和权重的步骤</p>
+</blockquote>
+<h4 id="motivation">Motivation</h4>
+<p>去掉训练中需要的光流数据，提升（训练）速度</p>
+<h4 id="approach">Approach</h4>
+<p><strong>Deformable Convolution</strong>: 通过数据计算出的偏移量，是卷积的receptive field可变。不只是基于中心的<code>{(-1,-1),(-1,0),(-1,1),...,(1,0),(1,1)}</code>，即<img src="https://latex.codecogs.com/svg.latex?p_0+p_n" alt="latex_equ">，而可以是<img src="https://latex.codecogs.com/svg.latex?p_0+p_n+\Delta%20p_n" alt="latex_equ">。其中<img src="https://latex.codecogs.com/svg.latex?\Delta%20p_n" alt="latex_equ">为小数，使用双线性插值计算。</p>
+<p><strong>Spatiotemporal Sampling Network</strong></p>
+<p>选择前后K帧的特征图进行融合，当前帧reference frame，其他帧supporting frame。</p>
+<ol>
+<li>求特征时进行四次<strong>变形卷积</strong></li>
+</ol>
+<p><img src="https://latex.codecogs.com/svg.latex?f_t=Backbone%28I_t%29,\;%20f_{t+k}=Backbone%28I_{t+k}%29,\;%20f_{t,t+k}=concat%28f_t,%20f_{t+k}%29%20" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?o^{%281%29}_{t,t+k}=predict\_offset%28f_{t,t+k}%29" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?g^{%281%29}_{t,t+k}=deform\_conv%28f_{t,t+k},\;%20o^{%281%29}_{t,t+k}%29%20" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?o^{%282%29}_{t,t+k}=predict\_offset%28g^{%281%29}_{t,t+k}%29%20" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?g^{%282%29}_{t,t+k}=deform\_conv%28g^{%281%29}_{t,t+k},\;%20o^{%282%29}_{t,t+k}%29" alt="latex_equ"></p>
+<p>And so on...</p>
+<p>但最后一次，使用最初的</p>
+<p><img src="https://latex.codecogs.com/svg.latex?g^{%284%29}_{t,t+k}=deform\_conv%28o^{%284%29}_{t,t+k},\;%20f_{t,t+k}%29" alt="latex_equ"></p>
+<ol start="2">
+<li>融合时，将前后K帧进行融合。</li>
+</ol>
+<p>计算第<code>t+k</code>帧权重：</p>
+<p>三层子网络S对g计算中间表示，求余弦距离的exp来计算权值。对前后的每一张support frame的每一个像素p计算融合权重</p>
+<p><img src="https://latex.codecogs.com/svg.latex?w_{t,t+k}%28p%29=exp%28\frac{S%28g^{%284%29}_{t,t}%29%28p%29\cdot%20S%28g^{%284%29}_{t,t+k}%29%28p%29}{|S%28g^{%284%29}_{t,t}%29%28p%29|\;|S%28g^{%284%29}_{t,t+k}%29%28p%29|}%29" alt="latex_equ"></p>
+<p>归一化后融合，在t-K到t+K的时间范围上加权求和，获得每个像素点在reference frame（t时刻）的融合特征，输入检测网络。</p>
+<p><strong>细节</strong></p>
+<ul>
+<li><p>backbone采用增加4个<img src="https://latex.codecogs.com/svg.latex?3\times%203" alt="latex_equ">变形卷积的ResNet-101网络。</p>
+</li>
+<li><p>获得融合特征<img src="https://latex.codecogs.com/svg.latex?g^{aggr.}_t" alt="latex_equ">后，拆成两部分，一半输入RPN产生proposal（每点9个anchor和一共300个proposal），另一半输入R-FCN。</p>
+</li>
+<li><p>训练时K较小，K=1，前后各一帧，随机sample的。</p>
+</li>
+<li><p>先在DET上预训练，support frame就是本身。</p>
+</li>
+<li><p>测试时使用较大K，K=13。先算出特征图然后缓存来解决GPU RAM问题。</p>
+</li>
+</ul>
+<hr>
+<h2 id="looking-fast-and-slow-memory-guided-mobile-video-object-detection">Looking Fast and Slow: Memory-Guided Mobile Video Object Detection</h2>
+<blockquote>
+<p>Using memory(LSTM) in object detection</p>
+<p>SOTA of ImageNet VID</p>
+</blockquote>
+<p>Concern more on light-weight and low computation time.</p>
+<p>使用轻量级网络mobilenet识别场景的主要内容，快速的特征提取需要维护memory作为补充信息</p>
+<p>一个精确的特征提取器用于初始化和维护memory，之后快速处理，使用LSTM维护memory。强化学习用来决定使用快速/慢速特征提取器(tradeoff)</p>
+<hr>
+<h4 id="-">多分支特征提取</h4>
+<p>Use two feature extractor <strong>parallel</strong> (accuracy🆚speed)</p>
+<p><img src="Figures/image-20191017232410901.png" alt="image-20191017232410901"></p>
+<p>inference流程</p>
+<p><img src="https://latex.codecogs.com/svg.latex?M_k,%20s_k%20=%20\bold{m}%28\bold{f_i}%28I_k%29,%20s_{k-1}%29" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?D_k=\bold{d}%28M_k%29" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\bold{f_i}" alt="latex_equ">为选择的特征提取网络，<strong>m</strong>为memory module.</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\bold{f_i}=\{f_0:%20MobileNetV2%20\to%20accuracy,\;\;%20f_1:%20low\;%20reso%20\&amp;%20depth%20\to%20speed\}" alt="latex_equ">，<strong>d</strong>为SSD检测网络</p>
+<p>定义<img src="https://latex.codecogs.com/svg.latex?\tau" alt="latex_equ">为<img src="https://latex.codecogs.com/svg.latex?f_1:f_0" alt="latex_equ">超参数，也可以通过interleaving policy获得</p>
+<p><strong>other methods</strong>：减少深度0.35，降低分辨率160x160，SSDLite，限制anchor的长宽比<img src="https://latex.codecogs.com/svg.latex?\{1,\;0.5,\;2.0\}" alt="latex_equ"></p>
+<h4 id="memory-module">memory module</h4>
+<p><img src="Figures/image-20191018103006549.png" alt="image-20191018103006549"></p>
+<p>Modified LSTM module👆: </p>
+<ol>
+<li><strong>skip connection</strong> between the bottleneck and output</li>
+<li><strong>grouped convolution</strong> process LSTM state groups separately</li>
+</ol>
+<p><em>Ps. standard LSTM</em>👇</p>
+<p><img src="Figures/image-20191018103139589.png" alt="image-20191018103139589"></p>
+<p>To perserve <strong>long-term dependencies</strong> <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> <em>skip state update</em>: when <img src="https://latex.codecogs.com/svg.latex?f_1" alt="latex_equ"> run, always <strong>reuse output state</strong> from the last time <img src="https://latex.codecogs.com/svg.latex?f_0" alt="latex_equ"> was run</p>
+<h4 id="training">Training</h4>
+<p>Pretrain LSTM on Imagenet Cls for initialization</p>
+<p>Unroll LSTM to six steps</p>
+<p>Random select feature extractor</p>
+<p>Crop and shift to augment training data</p>
+<hr>
+<h4 id="adaptive-interleaving-policy-rl-">Adaptive Interleaving Policy(RL)</h4>
+<p>Policy network <img src="https://latex.codecogs.com/svg.latex?\pi" alt="latex_equ"> to measure detection confidence, examines <strong>LSTM state</strong> and decide next feature extractor to run</p>
+<p>Train policy network using Double Q-learning(DDQN)</p>
+<p>Action space: <img src="https://latex.codecogs.com/svg.latex?f_i" alt="latex_equ"> at next step</p>
+<p>State space: <img src="https://latex.codecogs.com/svg.latex?S=%28c_t,\;h_t,\;c_t-c_{t-1},\;h_t-h_{t-1},\;\eta_t%29" alt="latex_equ">, LSTM states and their changes, action history term <img src="https://latex.codecogs.com/svg.latex?\eta" alt="latex_equ"> (binary vector, len=20).</p>
+<p>Reward space: <strong>speed reward</strong> positive reward when <img src="https://latex.codecogs.com/svg.latex?f_1" alt="latex_equ"> is run, <strong>accuracy reward</strong> loss difference between min-loss extractor.</p>
+<p><img src="Figures/image-20191018120813917.png" alt="image-20191018120813917"></p>
+<p>Policy network to devide which extractor👇</p>
+<p><img src="Figures/image-20191018121558765.png" alt="image-20191018121558765"></p>
+<p>Generate batches of <img src="https://latex.codecogs.com/svg.latex?%28S_t,\;a,\;S_{t+1},\;R_t%29" alt="latex_equ"> by run interleaved network in inference mode</p>
+<p>Training process👇</p>
+<p><img src="Figures/image-20191018121739427.png" alt="image-20191018121739427"></p>
+<hr>
+<h4 id="inference-optimization">Inference Optimization</h4>
+<ol>
+<li>Asynchronous mode</li>
+</ol>
+<p><img src="https://latex.codecogs.com/svg.latex?f_0" alt="latex_equ"> and <img src="https://latex.codecogs.com/svg.latex?f_1" alt="latex_equ"> run in separate threads,  <img src="https://latex.codecogs.com/svg.latex?f_1" alt="latex_equ"> keeps detection and  <img src="https://latex.codecogs.com/svg.latex?f_0" alt="latex_equ"> <strong>updates memory when finished</strong> its computation. Memory module use most recent available memory, <strong>NO WAIT</strong> for slow extractor.</p>
+<p><strong>Potential Weakness</strong>: latency/mismatch of call large extractor and accuracy memory output. Delay of generate more powerful memory using large extractor when encounter hard example. Memory will remains less powerful before large extractor generates new one.</p>
+<ol start="2">
+<li>Quantization</li>
+</ol>
+<hr>
+<h4 id="experiments">Experiments</h4>
+<p><img src="Figures/image-20191018141931896.png" alt="ImageNetVID-val"></p>
+<p>ImageNet VID val👆</p>
+<p><img src="Figures/image-20191018142044512.png" alt="image-20191018142044512"></p>
+<p>👆RL demonstration: red means call large model, blue for small model.</p>
+<hr>
+<h2 id="object-detection-in-videos-with-tubelet-proposal-networks">Object detection in videos with Tubelet Proposal Networks</h2>
+<blockquote>
+<p>如何高效的产生时间维度的proposal (aka. ::tubelet::)?<br>通过关键帧检测结果产生一条序列的所有proposal ::detect by track::。然后使用LSTM分类  </p>
+</blockquote>
+<p>产生tubelet有两种方法 1. Motion-based (only for short-term)    2. Appearance-based (tracking, expensive/?)</p>
+<h4 id="approach">Approach</h4>
+<p><img src="Figures/8894F10F-8B2A-407E-84A0-1704CEB15B71.png" alt=""><br>↖️首先对静态图片进行检测获得检测结果，然后在 <strong>相同位置</strong> 不同时间上pooling，获得spatial anchors。基于假设感受野足够大可以获得运动物体的特征（中心不会移出物体框）。Align之后用于预测物体的移动</p>
+<p>使用Tubelet Proposal Network回归网络预测相对于 <strong>第一帧</strong> 的运动量（为了防止追踪过程中的drift，累计误差）。预测的时间序列长度为omega<br><img src="Figures/3C21D393-7BED-48D6-B7E6-91B8706DE95E.png" alt=""><br><img src="Figures/056FAC3D-B7C8-491D-855C-D17FC615DFB2.png" alt=""><br><img src="Figures/CDE6301A-A0BC-47A8-AFBA-17C416E72EE4.png" alt=""><br>同时，认为GT的bbox就是tubelet proposal的监督信号。同时对运动表示进行归一化。（对归一化后的残量进行学习）<br><img src="Figures/A251E513-8863-44A3-966C-BB760D6F5621.png" alt=""><br>损失函数👇<br><img src="Figures/34F1D7B2-078A-4DFE-AB19-6CDF87EB0305.png" alt=""><br>👆M为GT，M_hat为归一化后的offset</p>
+<p>创新点：::分块初始化::<br>首先训练预测时间序列长度为2的TPN，得到参数W_2和b_2。由于第二帧运动量m_2由第1和第2帧的特征图预测，第三帧运动量由第1和第3帧特征图预测，m_4由第1&amp;4帧预测。和中间帧无关，所以认为预测过程有相似性（1&amp;2 -&gt; m2, 1&amp;3 -&gt; m3)，可以使用W_2和b_2部分初始化W_3和b_3参数中的一块👇<br><img src="Figures/2A2C3988-1C18-4890-A0CB-BAD7549D206F.png" alt=""><br>最后循环产生所有帧的所有static anchor的tubelet proposal👇<br><img src="Figures/D8CB4929-8B8C-4368-914C-37B6B056EC67.png" alt=""><br>LSTM做类别预测↘️<br><img src="Figures/B007A05F-18CF-4E95-AD77-9E02FA3CC107.png" alt=""><br>↗️RoI-pooling之后的tubelet proposal中特征放入一层的LSTM encoder，再将memory和hidden放入decoder反序输出类别预测</p>
+<hr>
+<h2 id="iou-tracker">IoU tracker</h2>
+<p><img src="Figures/v2-049b75081ce8ddc637894d1d980c8316_hd.jpg" alt=""><br><code>D</code>表示检测结果，<code>F</code>帧，每一帧至多<code>N</code>个检测结果<br><code>T_a</code>表示正在追踪未结束的目标，<code>T_f</code>表示已经最终完成的trajectory（移出画面外）<br><strong>思路</strong>：<br>对于 <em>某一帧</em> ，对于每个正在追踪的 <em>trajectory</em> ，在当前帧的检测结果中找IoU最大的检测结果。如果IoU大于阈值，添加到检测结果中；如果最大的IoU都没有大于阈值，则判断trajectory的长度和最高置信度，判断是否从<code>T_a</code>删除并加入检测完成trajectory集合中<code>T_f</code>。认为消失/追踪完成<br>继续下一个trajectory。剩余的检测框，建立一个新的trajectory。<br>最后<code>T_a</code>中trajectory判断长度和最高置信度，决定是否加入<code>T_f</code><br><code>T_f</code>即为追踪结果</p>
+<hr>
+<h2 id="multiple-hypothesis-tracking">Multiple Hypothesis Tracking</h2>
+<h4 id="-">构建跟踪树</h4>
+<p>每一帧的观测产生一个跟踪树，将出现在geting area的观测添加作为其子节点<br>增加一个分支标记跟踪丢失的节点</p>
+<h4 id="mahalonobis-distance">Mahalonobis Distance</h4>
+<p><strong>Measure the distance between a vector(point) and a distribution</strong></p>
+<blockquote>
+<p>Why use Mahalonobis distance?</p>
+</blockquote>
+<ol>
+<li>normalized:<br>normalize the distribution into <img src="https://latex.codecogs.com/svg.latex?%28x-\bar%20x%29/\sigma" alt="latex_equ"></li>
+<li>consider all the sample points in the distribution, not the center of distribution only, especially when the two random variable is correlated.<br><img src="https://images-1256050009.cos.ap-beijing.myqcloud.com/15688765365463.jpg" alt="15688765365463"></li>
+</ol>
+<blockquote>
+<p>How is Mahalonobis distance different from Euclidean distance?</p>
+</blockquote>
+<ol>
+<li>It transforms the columns into uncorrelated variables</li>
+<li>Scale the columns to make their variance equal to 1</li>
+<li>Finally, it calculates the Euclidean distance.</li>
+</ol>
+<p><strong>formula</strong><br><img src="https://latex.codecogs.com/svg.latex?D^2=%28x-m%29^T\cdot%20C^{-1}\cdot%20%28x-m%29" alt="latex_equ"><br><img src="https://latex.codecogs.com/svg.latex?x" alt="latex_equ"> is the observation<br><img src="https://latex.codecogs.com/svg.latex?m" alt="latex_equ"> is the mean value of the independent variables<br><img src="https://latex.codecogs.com/svg.latex?C^{-1}" alt="latex_equ"> is the inverse of covariance matrix<br><a href="https://www.machinelearningplus.com/statistics/mahalanobis-distance/">Read more</a></p>
+<h4 id="kalman-filter-an-estimation-method">Kalman Filter: an estimation method</h4>
+<blockquote>
+<p>Why use kalman filter?</p>
+</blockquote>
+<p>Estimate state of a system from different sources that may be subject to noise. <em>Observe external, predict internal</em><br>Fuse the observations to estimate</p>
+<p><img src="https://images-1256050009.cos.ap-beijing.myqcloud.com/15688950199889.jpg" alt="15688950199889"><br><strong>formulas</strong> ps. <img src="https://latex.codecogs.com/svg.latex?\dot{x}" alt="latex_equ"> means the derivate of x<br><img src="https://latex.codecogs.com/svg.latex?e_{obs}=x-\hat{x}" alt="latex_equ"><br><img src="https://latex.codecogs.com/svg.latex?\dot{x}=Ax+Bu" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?y=Cx" alt="latex_equ"><br><img src="https://latex.codecogs.com/svg.latex?\dot{\hat{x}}=A\hat{x}+Bu+K%28y-\hat{y}%29" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\hat{y}=C\hat{x}" alt="latex_equ"><br>subtract<br><img src="https://latex.codecogs.com/svg.latex?\dot{e_{obs}}=%28A-KC%29e_{obs}%20\to%20e_{obs}%28t%29=e^{%28A-KC%29t}e_{obs}%280%29" alt="latex_equ"><br><img src="https://images-1256050009.cos.ap-beijing.myqcloud.com/15688965872265.jpg" alt="15688965872265"><br>Multiple the predicted position&#39;s p.d.f. and the measured position&#39;s, p.d.f., and form a new Gaussian Distribution.<a href="https://www.youtube.com/watch?v=ul3u2yLPwU0&amp;list=PLn8PRpmsu08pzi6EMiYnR-076Mh-q3tWr&amp;index=3">See more</a></p>
+<h4 id="gating">Gating</h4>
+<p><img src="https://latex.codecogs.com/svg.latex?x^i_k" alt="latex_equ"> means instance i&#39;s location in k time, subject to <img src="https://latex.codecogs.com/svg.latex?\hat{x}^i_k" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\Sigma^i_k" alt="latex_equ"> Gaussian distribution. <img src="https://latex.codecogs.com/svg.latex?\hat{x}^i_k" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\Sigma^i_k" alt="latex_equ"> can be estimated via Kalman Filter.<br>Use Mahalonobis Distance between observed location and predicted location to determine add to trajectory or not.<br><img src="https://latex.codecogs.com/svg.latex?d^2=%28\hat{x}^i_k-y^i_k%29^T%28\Sigma^i_k%29^{-1}%28\hat{x}^i_k-y^i_k%29\leq%20threshold" alt="latex_equ"><br>threshold determine range the gating area.</p>
+<h2 id="plug-play-convolutional-regression-tracker-for-video-object-detection">Plug &amp; Play Convolutional Regression Tracker for Video Object Detection</h2>
+<p>Detector中加入light-weight tracker，使用detector提取的特征</p>
+<p><img src="Figures/image-20200304123522688.png" alt="image-20200304123522688"></p>

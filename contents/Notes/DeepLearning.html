@@ -1,0 +1,475 @@
+<h1 id="deep-learning-related-topics">Deep Learning Related Topics</h1>
+<h2 id="resnext">ResNeXt</h2>
+<blockquote>
+<p>传统为增加深度（层数）和宽度（特征维度），变成结合VGG的堆叠网络+Inception的 <em>split-transform-merge</em> 策略。增加准确率和可扩展性同时不改变或减小复杂度  </p>
+</blockquote>
+<p>提出<u><strong>cardinality</strong></u>，表示多分支的分支数量，more effective<br><img src="Figures/EC005B55-327B-4F4C-A5FE-9232BA9D04E8.png" alt=""><br>👆左为ResNet，右为ResNeXt cardinality=32<br><u><strong>平行堆叠</strong></u>代替线性加深，不显著增加参数数量级增加准确率；同时平行分支的拓扑结构相同减少了超参数（设计成本）<br><img src="Figures/C1CCACF2-6F03-4B74-99C6-E8397306F05E.png" alt=""><br>👆split-transform-merge过程<br><img src="Figures/E210EA79-5D84-4C33-B0BA-146AFABB08A2.png" alt=""><br>👆三种等价的结构，第三种简洁，速度更快</p>
+<hr>
+<h2 id="-">卷积大小</h2>
+<p><img src="https://latex.codecogs.com/svg.latex?O=\lfloor\frac{W-F+2P}{S}\rfloor+1" alt="latex_equ"></p>
+<p><strong>Dilated Conv</strong></p>
+<p><img src="https://latex.codecogs.com/svg.latex?O=\frac{W+2P-%28d%28k-1%29+1%29}{S}+1" alt="latex_equ"></p>
+<h2 id="mobilenet">MobileNet</h2>
+<p>把传统卷积变成depth-wise卷积和1x1卷积<br>标准卷积（Dk卷积核大小，Df输出特征图尺寸，M输入通道，N输出通道）<br><img src="https://latex.codecogs.com/svg.latex?D_K\times%20D_K\times%20M\times%20N\times%20D_F\times%20D_F" alt="latex_equ"><br><strong>深度可分离卷积</strong>：depth-wise卷积和<code>1x1</code>卷积</p>
+<p><img src="https://latex.codecogs.com/svg.latex?D_K\times%20D_K\times%20M\times%20D_F\times%20D_F%20+%20M\times%20N\times%20D_F\times%20D_F" alt="latex_equ"></p>
+<p>Depth卷积把输入特征图Dk x Dk x M成Df x Df x M层，然后<code>1x1</code>把M层变为N层输出<br><img src="Figures/6B22C4FC-30D7-45C9-9CD8-DD3469070EDC.png" alt=""><br>👆<u><strong>depth-wise conv</strong></u>不同特征图通道使用不同卷积核，M层特征图卷积还是M层（不相加）所以<code>Dk x Dk x M x Df x Df</code>（一个卷积核计算<code>Dk x Dk</code>次，构成输出特征图的一个点，所以一张输出特征图一共计算<code>Dk x Dk x Df x Df</code>次，一共M层）<br><img src="Figures/770C8B8D-2E90-4D9E-99D4-E1BE24CAE3A4.png" alt=""><br>👆depth-wise解释<br><img src="Figures/C8B12662-17AF-4AE3-8753-17E1F0A5FAC0.png" alt=""><br>👆<u><strong>point-wise conv</strong></u>不同特征图使用同一个卷积核，但是1x1。把M通道卷积成N通道，所以<code>M x N x Df x Df</code> （一个卷积核计算M层相加，再计算N次构成N通道）<br><img src="Figures/B1AE5F5A-4B07-4A4E-A1F3-932F477265B7.png" alt=""><br>👆point-wise解释</p>
+<hr>
+<h2 id="convolution">Convolution</h2>
+<p><img src="Figures/B712984B-A621-4D75-B9C1-7DB0D7D0226F.png" alt=""><br><img src="Figures/4ECAAE30-D4AB-45FC-A130-F8DE831CC235.png" alt=""><br>参数量 <code>H x W x C1 x C2</code></p>
+<h2 id="group-convolution">Group Convolution</h2>
+<p><img src="Figures/FB2404B4-04DF-4E98-923F-0E5DDB739C0A.png" alt=""><br>卷积核之间的关系是<strong>稀疏</strong>的。group conv减少卷积核之间的关联性， <strong>regularization</strong>，减少过拟合<br>Ref: <a href="https://blog.yani.io/filter-group-tutorial/">A Tutorial on Filter Groups (Grouped Convolution) - A Shallow Blog about Deep Learning</a></p>
+<hr>
+<h2 id="mobilenet-v2">MobileNet V2</h2>
+<p>增加<u><strong>inverted residual with linear bottleneck</strong></u>，首先升维，卷积，再降维。 <u>特征提取在高维空间进行</u> 。纺锤形，和resnet的hour-glass相反，所以inverted<br>在DW之前 <u><strong>增加PW卷积</strong></u>：上一层通道数少，则DW只能在低维空间提取特征，增加PW后，先升维，再提DW特征<br><img src="Figures/20A1CAA2-880C-4C27-9475-C66CC955FDA5.png" alt=""><br>去掉了第二个PW的 <u><strong>激活函数</strong></u> ：只有在高维空间中，激活函数可以增加非线性；而在低维空间中，激活函数会破坏特征。因此采用线性<br>增加 <strong>shortcut</strong> 连接，输出与输入相加：同ResNet</p>
+<hr>
+<h2 id="shufflenet">ShuffleNet</h2>
+<blockquote>
+<p>组内point-wise卷积，增加shuffle操作通道之间信息沟通  </p>
+</blockquote>
+<p><img src="Figures/B747E511-B1B6-4CD8-9F8F-446708466A2B.png" alt=""><br>👆a：normal，b：分组卷积，c：channel shuffle</p>
+<p><em>另一种理解👇</em></p>
+<p><img src="Figures/image-20200322164220501.png" alt="image-20200322164220501"></p>
+<h4 id="channel-shuffle">Channel shuffle</h4>
+<p>👇<u><strong>展开，转置，平铺</strong></u><br><img src="Figures/6C36658F-B3E1-4407-9517-D585F622C5BE.png" alt=""><br><img src="Figures/3C97825C-0822-455C-AB65-9D0E27EB706C.png" alt=""><br>👆对比mobilenet，shufflenet和shufflenet降采样<br>👆g采用分组卷积，g小；去掉ReLU，减少信息损耗；降采样保证参数量不骤减，需要增加通道数量，采用concat而不是element-wise add<br><strong>性能评价</strong>：MAC访存，GPU并行性<br><strong>设计准则</strong></p>
+<ul>
+<li>当输入通道数和输出通道数相同时，MAC最小</li>
+<li>MAC与分组数量g成正比（谨慎使用分组卷积）</li>
+<li>网络的分支数量降低并行能力（卷积核加载和同步），单分支速度快--网络结构简单<ul>
+<li>ResNeXt准确率提升但是速度慢</li>
+</ul>
+</li>
+<li>Element-wise操作是非常耗时</li>
+</ul>
+<p><img src="Figures/EA15DE00-DC00-4A95-B656-20AA985E0269.png" alt=""><br>👆shufflenet v2和downsample<br>增加<strong>通道分割</strong>，通道分为c1和c2输入到两个分支中，使用concat替代element-wise add<br>堆叠block的时候，可以将concat, channel-shuffle, channel-split合并为一个element-wise操作<br>思想—<u><strong>特征重用</strong></u>，上层的feature map直接传入之后的模块，直接映射（shufflenet v2左侧分支）</p>
+<hr>
+<h2 id="squeezenet">SqueezeNet</h2>
+<blockquote>
+<p><u><strong>分块设计</strong></u>思想，模型<u><strong>压缩</strong></u></p>
+</blockquote>
+<ol>
+<li>使用<code>1x1</code>卷积代替<code>3x3</code>卷积  </li>
+<li>减少<code>3x3</code>卷积输入通道数  </li>
+<li>延迟下采样，前面layer获得更大特征图提升性能  </li>
+</ol>
+<p><strong>Fire Module</strong></p>
+<p>两层卷积操作：squeeze <code>1x1</code>, expand <code>1x1 + 3x3</code><br><img src="Figures/v2-5fde12f060519e493cb059484514f88a_hd.jpg" alt=""><br>👆👇 <u>squeeze是单分支，expand是二分支</u><br><img src="Figures/1DCBEDA4-1CA7-4029-8E78-BF80ABEF9898.png" alt=""><br>部分3x3变成1x1，参数数量减少，但为获得性能需要加深网络深度，同时并行能力下降，也导致测试时间变长<br><img src="Figures/v2-5f8ff8cb94babde05e69365336e77a62_hd.jpg" alt=""><br>👆网络结构</p>
+<hr>
+<h2 id="squeeze-and-excitation-networks">Squeeze-and-Excitation Networks</h2>
+<p><a href="https://www.arxiv.org/pdf/1709.01507.pdf">arXiv</a><br>卷积核：空间维度信息，特征维度信息聚集<br>空间spatial：inception(multiscale)，inside-outside(context)<br>SENet-&gt;特征维度,feature channel<br>Motivation:</p>
+<ol>
+<li>Explicitly model channel-interdependcies</li>
+<li>Feature recalibration: enhance useful, suppress less useful</li>
+</ol>
+<p>特征通道之间的关系：特征重标定（通过学习的方式来自动获取到每个特征通道的重要程度，然后依照这个重要程度去提升有用的特征并抑制对当前任务用处不大的特征）<br>Squeeze: global pooling, 顺着空间维度压缩，增加全局空间信息，每一个二维特征图变为一个实数。表示特征通道上全局分布，加上S模块使得靠近输入的层也可以获得全局感受野<br>Excitation: like gate in RNN. 每个通道生成权重，建模相关性，capture channel-wise dependencies<br>W的要求 <em> learn non-linear interaction </em> learn a non-mutually-exclusive relationship since we would like to ensure that multiple channels are allowed to be emphasised opposed to one-hot activation<br>Reweight: multiply with feature map  </p>
+<p>嵌入Inception：<br>嵌入ResNet： addition之前进行scale操作，防梯度弥散</p>
+<hr>
+<h2 id="hard-negative-mining-in-ssd-focal-loss">Hard Negative Mining in SSD &amp; Focal Loss</h2>
+<ol>
+<li><p>Hard Negative Mining in SSD 作为中间结果处理的步骤。只有GT框/和GT框IoU大于阈值的才是正样本（即正确检测框，数量少），其他都是负样本（即错误的检测框，数量大）</p>
+<blockquote>
+<p><u><strong>为了正负样本数量平衡</strong></u>，防止少量关键的（提升性能）的负样本被大量正样本掩盖而无法被学习/优化到。<br>解决错误样例太多，<u><strong>正确样例太少</strong></u>，掩盖正确样例的问题。  </p>
+</blockquote>
+<p> <strong>Hard Negative Mining in SSD</strong>: 直接通过根据置信度损失，<u><strong>排序筛选</strong></u> 来选择分类损失最大的负样本（即不是物体但是有最高的分类置信度 -&gt; 困难分类样本<em>迷惑性，丢弃不是物体但分类置信度相对较低 -&gt; 简单</em>错误不严重/不明显），只保留分类置信度损失较大的，人为保证样本数量平衡。</p>
+</li>
+<li><p>Focal Loss 用于损失函数中</p>
+<blockquote>
+<p><u><strong>为了能学到困难样例</strong></u>，学到更多，不被简单掩盖。<br>解决错误样例中，<u><strong>简单的错误样例太多</strong></u>，困难错误样例太少，且求和后掩盖困难的错误样例，而导致检测器学不到困难的错误样例（真正需要学/优化的）。  </p>
+</blockquote>
+<p> <strong>Focal Loss</strong>: 通过给不同置信度的样本<u><strong>增加权重</strong></u>的方法。接近0/1为简单样本，接近0.5为难样本。所以正例x (1-p)，负例x p，使用 <em>不确定程度</em> 作为权重。难易的错误都会学，但困难的错误对loss影响更大。<br> <img src="https://latex.codecogs.com/svg.latex?L%28p,y%29=-%28y\cdots%20%281-p%29\cdots%20\log%28p%29+%281-y%29\cdots%20p\cdots\log%281-p%29%29" alt="latex_equ"></p>
+</li>
+</ol>
+<hr>
+<h2 id="one-stage-two-stage-detector">One-stage &amp; Two-stage detector</h2>
+<h4 id="rcnn">RCNN</h4>
+<p><img src="Figures/6F235DE5-4774-4527-9FC9-F8EAF8252AEE.png" alt=""></p>
+<h2 id="iccv-2019-workshop">ICCV 2019 workshop</h2>
+<h4 id="lpirc">LPIRC</h4>
+<p><a href="https://rebootingcomputing.ieee.org/lpirc/2019">https://rebootingcomputing.ieee.org/lpirc/2019</a><br>Winner talk:  <a href="http://ieeetv.ieee.org/conference-highlights/award-winning-methods-for-lpirc-tao-sheng-lpirc-2018?rf=series%7C3">http://ieeetv.ieee.org/conference-highlights/award-winning-methods-for-lpirc-tao-sheng-lpirc-2018?rf=series|3</a><br> <a href="http://ieeetv.ieee.org/conference-highlights/deeper-neural-networks-kurt-keutzer-lpirc-2018?rf=series%7C3">http://ieeetv.ieee.org/conference-highlights/deeper-neural-networks-kurt-keutzer-lpirc-2018?rf=series|3</a><br><em>Real Time Object Detection On Low Power Embedded Platforms</em><br><em>1810.01732.pdf</em></p>
+<h4 id="compact-and-efficient-feature-representation-and-learning">Compact and Efficient Feature Representation and Learning</h4>
+<p><a href="http://www.ee.oulu.fi/~lili/CEFRLatICCV2019.html">http://www.ee.oulu.fi/~lili/CEFRLatICCV2019.html</a><br>DCNN network quantization and compression, energy efficient network architectures, binary hashing techniques and data efficient techniques like meta learning</p>
+<hr>
+<h2 id="triplet-loss">Triplet Loss</h2>
+<p><img src="Figures/20150707120209693.png" alt=""><br>三元组: [anchor, positive, negative] 拉近pos，推远neg</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{L}_{\mathrm{tri}}%28\theta%29=\sum_{a,%20p,%20n%20\atop%20y_{a}=y_{p}%20\neq%20y_{n}}\left[m+D_{a,%20p}-D_{a,%20n}\right]_{+}" alt="latex_equ"></p>
+<blockquote>
+<p>选出B个triplets，只用了B个训练，实际上可以有<code>6B^2-4B</code>种triplets的组合（<em>B个anchor，pos固定一对一，除此二其他所有都可以为neg，3B-2种；anchor和pos交换乘2</em>） <code>2*B*(3B-2)</code>种  </p>
+</blockquote>
+<p>难训练，需要<strong>triplet mining</strong>。分出hard，semi-hard，easy三种样本<br><img src="Figures/02_triplets.png" alt=""></p>
+<ol>
+<li><p><u><strong>Batch-Hard</strong></u><br><u>选择P个类别（人），每个类别K个样本（照片），PK个样本作为anchor</u> 。每个anchor只选择<strong>距离最远的pos和距离最近的neg</strong>（最hard）</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{L}_{\mathrm{BH}}%28\theta%20;%20X%29=\overbrace{\sum_{i=1}^{P}%20\sum_{a=1}^{K}}^{\text%20{all%20anchors}}%20\left[m%20+%20%20\overbrace{\max_{p=1%20\ldots%20K}%20D\left%28%20f_{\theta}\left%28x_{a}^{i}\right%29,%20f_{\theta}%28x_p^i%29\right%29}^{\text%20{hardest%20positive}}%20-%20\underbrace{\min\limits_{j=1%20\ldots%20P,\;%20n=1\ldots%20K%20\atop%20j%20\neq%20i}%20D\left%28f_{\theta}\left%28x_{a}^{i}\right%29,%20f_{\theta}\left%28x_{n}^{j}\right%29\right%29}_{\text%20{hardest%20negative}}\right]_{+}%20" alt="latex_equ"><br>一共<img src="https://latex.codecogs.com/svg.latex?P_K" alt="latex_equ">个triplets</p>
+</li>
+<li><p><u><strong>Batch-All</strong></u><br>选择P个类别（人），每个类别K个样本（照片），PK个样本作为anchor，loss计算所有的pos和所有的neg（和baseline选法相同）</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{L}_{\mathrm{BA}}%28\theta%20;%20X%29=%20\overbrace{\sum_{i=1}^{P}%20\sum_{a=1}^{K}}^{\text%20{all%20anchors}}%20\overbrace{\sum_{p=1%20\atop%20p%20\neq%20a}^{K}}^{\text{all%20pos.}}%20\overbrace{\sum_{j=1%20\atop%20j%20\neq%20i}^{P}%20\sum_{n=1}^{K}}^{\text%20{all%20neg.}}\left[m+d_{j,%20a,%20n}^{i,%20a,%20p}\right]_{+}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?d_{j,%20a,%20n}^{i,%20a,%20p}=D\left%28f_{\theta}\left%28x_{a}^{i}\right%29,%20f_{\theta}\left%28x_{p}^{i}\right%29\right%29-D\left%28f_{\theta}\left%28x_{a}^{i}\right%29,%20f_{\theta}\left%28x_{n}^{j}\right%29\right%29" alt="latex_equ"><br><img src="https://latex.codecogs.com/svg.latex?P_K" alt="latex_equ">个anchor，每个有<img src="https://latex.codecogs.com/svg.latex?K-1" alt="latex_equ">的pos，<img src="https://latex.codecogs.com/svg.latex?P_K-K" alt="latex_equ">个neg（其他所有类别的样本）。一共<img src="https://latex.codecogs.com/svg.latex?P_K%28K-1%29%28P_K-K%29" alt="latex_equ">个triplets</p>
+</li>
+</ol>
+<hr>
+<h2 id="long-short-term-memory-lstm-">Long Short Term Memory (LSTM)</h2>
+<blockquote>
+<p>Handling long-term dependencies</p>
+</blockquote>
+<p>LSTM blocks👇</p>
+<p><img src="Figures/image-20191018172300763.png" alt="image-20191018172300763"></p>
+<h4 id="core-idea">Core idea</h4>
+<p><img src="Figures/image-20191018172422527.png" alt="image-20191018172422527"></p>
+<p>👆<strong>Cell state</strong> convey information straight down along the entire chain</p>
+<p><img src="https://colah.github.io/posts/2015-08-Understanding-LSTMs/img/LSTM3-gate.png" alt="img"></p>
+<p>👆<strong>Gate</strong> controls whether add/remove information to the cell state</p>
+<hr>
+<p><img src="Figures/image-20191018174346388.png" alt="image-20191018174346388"></p>
+<p>👆<strong>Forget Gate</strong>: how many last state information(<img src="https://latex.codecogs.com/svg.latex?c_{t-1}" alt="latex_equ">) keep/forget.</p>
+<p><img src="Figures/image-20191018174812836.png" alt="image-20191018174812836"></p>
+<p>👆<strong>Input Gate</strong>: what new information we’re going to store in the cell state.</p>
+<p>Two parts: <strong>sigmoid</strong> layer decide which part of values we will update, <strong>tanh</strong> layer create a vector of new candidate values <img src="https://latex.codecogs.com/svg.latex?\tilde{C}_t" alt="latex_equ"></p>
+<p><img src="Figures/image-20191018175359262.png" alt="image-20191018175359262"></p>
+<p>👆Apply to cell state: forget first, then partially add new candidate</p>
+<p><img src="Figures/image-20191018175611169.png" alt="image-20191018175611169"></p>
+<p>👆<strong>Output Gate</strong>: decide what we’re going to output</p>
+<p>Two parts: <strong>sigmoid</strong> layer decide which parts of the cell state going to output, <strong>tanh</strong> layer filters cell state. <strong>Multiply</strong> them together to get final output.</p>
+<hr>
+<h4 id="variants">Variants</h4>
+<p><strong>1. Peephole Connection</strong></p>
+<p>gate layer look at the cell state</p>
+<p><img src="Figures/image-20191018192328653.png" alt="image-20191018192328653"></p>
+<p><strong>2. Input&amp;Forget Together</strong></p>
+<p>make what to forget and what to add together. Only forget when going to input something, only input when we forget.</p>
+<p><img src="Figures/image-20191018192633284.png" alt="image-20191018192633284"></p>
+<p><strong>3. Gated Recurrent Unit</strong></p>
+<p>Combines the forget and input gated into &quot;update gate&quot;. Merge the cell state and the hidden state.</p>
+<p><img src="Figures/image-20191018192913785.png" alt="image-20191018192913785"></p>
+<p><a href="https://colah.github.io/posts/2015-08-Understanding-LSTMs/">Reference</a></p>
+<hr>
+<h2 id="nasnet">NASNet</h2>
+<blockquote>
+<p>先在小数据集中训练网络单元，再在大数据集中堆叠单元  </p>
+</blockquote>
+<p>学习网络中堆叠的网络单元1. Normal cell尺寸不变 2. Reduction cell减尺寸<br>控制器：一直在执行两个特征图的<u><strong>融合</strong></u><br><img src="Figures/v2-88f671125c2996924eb8a2c5b48c965d_r.jpg" alt=""><br>选择第一个feature map和第二个feature map(灰色) <code>2</code> ，计算输入的feature map A B(黄色) <code>2</code> ，选择操作融合两个feature map(绿色) <code>1</code><br>RNN预测，输出<code>2 x 5 x B</code>其中 <em>normal cell</em> + <em>reduction cell</em> ；每个都有B个块堆叠；每个block有五个输出👆<br>NASNet迁移学习优化策略为Proximal Policy Optimization(PPO) 👈<br>提出<strong>scheduled drop path</strong>，随机丢弃部分分支，增加网络冗余overfitting，类似「Inception」<br>丢弃概率随时间线型增加，训练次数多容易过拟合</p>
+<hr>
+<h2 id="detnas">DetNAS</h2>
+<p><strong>weight sharing</strong> inherit its weights from supernet instead of training from scratch<br><strong>joint optimization</strong> weight and architecture<br><strong>No proxy task or dataset</strong> 不需要提前训练小网络/小模块，也不需要从小数据集到大数据集训练<br><strong>train from scratch</strong> 更多迭代，不适用于小数据集<br>首先训练(pretrain+finetune)一个supernet，然后再supernet空间中找；直接在det任务<code>Vdet</code>上搜索 <u>proxyless</u> 👇<br><img src="Figures/DEEE8DD1-BD56-46A9-BA8A-6D16942C8049.png" alt=""><br>优点：</p>
+<ol>
+<li><p>Decoupling: 没有weight和architecture之间的bias interaction</p>
+</li>
+<li><p><u>supernet训好后，直接用val在supernet上搜索</u> 特定应用场景的结构，而不是finetune</p>
+</li>
+</ol>
+<h4 id="-supernet-">训练supernet👇</h4>
+<p><img src="Figures/78DB7B34-1276-4AE0-AC78-0C38A7308692.png" alt=""></p>
+<ol>
+<li><p>Single path sampling: 使训练和测试的配置一致<br><img src="Figures/74B60042-F0B7-48C0-BC3E-47E80BE0E4B0.png" alt=""></p>
+</li>
+<li><p>同步BN: <u>BN can not be frozen</u>, 不同path BN的参数不同（GroupNorm速度慢）</p>
+</li>
+</ol>
+<h4 id="-">搜索子网结构</h4>
+<p>遍历每个path，需要重新在trainset上搜集计算BN的mean和var<br>不用trainset训练子网，而直接在valset上eval</p>
+<h4 id="target-task-dataset-finetune-">Target task dataset上finetune子网结构</h4>
+<hr>
+<h2 id="self-supervised-sample-mining">Self-supervised Sample Mining</h2>
+<blockquote>
+<p><u><strong>semi-supervised</strong></u> <u><strong>weakly-supervised</strong></u> 使用未标注的数据提升模型性能   </p>
+</blockquote>
+<p><img src="Figures/image.png" alt=""><br>这个框架有两个阶段，分别是通过SSM对高一致性样本进行伪标注阶段和通过AL选择低一致性样本阶段。首先使用已标注的图片对模型进行fine-tune，对未标注或部分标注的图片提取region proposals（未标注样本），把这些 <strong>region proposals <u>粘贴</u> 到已标注的图片中进行交叉图片验证，根据重新预测出来的置信度确定如何对未标注样本进行标注</strong> 。对于高一致性样本，直接进行伪标注，对于低一致性样本，通过AL挑选出来，让相关人员进行标注。伪标注的样本用于模型的fine-tune，而新标注的样本添加到已标注的图片中，同时也用于模型的fine-tune<br>对于好的样本<code>xi</code>，proposal中的内容可以很好的展示j类的特征，粘贴到没有j类的图片中，新生成的图片中的proposal有包含<code>xi</code>的proposal，且具有很大的概率值，<u><strong>高一致性</strong></u>认为之前的样本框准确无错误➡️正样本<br>任务分类👇<br><img src="Figures/image%202.png" alt=""></p>
+<hr>
+<h2 id="bi-box-regression-for-pedestrian-detection-and-occlusion-estimation">Bi-box Regression for Pedestrian Detection and Occlusion Estimation</h2>
+<blockquote>
+<p>Part detector，针对行人遮挡问题，回归「全身」+「可见」两个框  </p>
+</blockquote>
+<p><img src="Figures/97B54C4E-F68D-4AB8-B030-A7C87315CE3E.png" alt=""><br>二分支网络：</p>
+<ol>
+<li><strong>Full body estimation</strong> 只对pos proposal回归</li>
+<li><strong>Visible part estimation</strong> 对pos和neg的proposal回归（FG&amp;BG）， <u>neg proposal回归缩小区域 <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> 0</u><br>pos/neg proposal根据和标注(full-body)的IoU决定<br><img src="Figures/AFA72E30-3E28-4167-8CC3-28C74B49AA10.png" alt=""><br>👆proposal由RPN获得，softmax1和softmax2预测行人得分。 <u>fuse</u> 时，两个都为pos，输出p更高；一个为neg，另一分支pos，则pos分支增加p</li>
+</ol>
+<h4 id="training">Training</h4>
+<p><u>样本标注两个框 (vis/full)</u>。把产生的proposal<code>P={x,y,w,h}</code>和标注框<code>Q=(Full,Vis)</code>match，pos-proposal规则为<code>IoU(P,F)&gt;thresh_1</code> &amp;&amp; <code>C(P,V)&gt;thresh_2</code>. C定义为👇<img src="https://latex.codecogs.com/svg.latex?C%28P,\bar{V}%29=\frac{\text%20{Area}%28P\cap\bar{V}%29}{\text%20{Area}%28\bar{V}%29}" alt="latex_equ"></p>
+<p>训练样本<code>X=(Img, P, cate=1, F, V)</code>，regression target为👇<br><img src="https://latex.codecogs.com/svg.latex?\bar{f}^x=\frac{\bar{F}^x-P^x}{P^W},\;\bar{f}^y=\frac{\bar{F}^y-P^y}{P^h}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\bar{f}^w=\log%28\frac{\bar{F}^w}{P^w}%29,\;\bar{f}^h=\log%28\frac{\bar{F}^h}{P^h}%29" alt="latex_equ"></p>
+<p>Neg-proposal=1.background   2.poorly aligned proposal   回归w,h -&gt; 0</p>
+<blockquote>
+<p>Why should force <em>visible part of neg-proposal</em> shrink? 「vis分支对pos和neg都处理」 #没懂<br>If the visible part estimation branch is trained to only regress visible parts for positive pedestrian proposals, the training of this branch would be dominated by pedestrian examples which are non-occluded or slightly occluded. For these pedestrian proposals, their ground-truth visible part and full body regions overlap largely. As a result, the estimated visible part region of a negative pedestrian proposal is often close to its estimated full body re- gion and the difference between the two branches after training would not be as large as the case in which the visible part regions of negative examples are forced to shrink to their centers.  </p>
+</blockquote>
+<p>不对负样本处理，则对负样本的预测结果两个分支相同「full分支对所有样本回归到GT，vis分支对正样本回归到GT，对负样本回归到0」<br><img src="Figures/D29D7BC4-9682-4E65-AB16-3A92A974DD47.png" alt=""><br>👆蓝色框，和full(GT)重合度高，但和vis重合度低。在Faster-RCNN中被认为pos，在本文中认为neg。更强的评价标准</p>
+<hr>
+<h2 id="precision-gating-improving-neural-network-efficiency-with-dynamic-dual-precision-activations">Precision Gating: Improving Neural Network Efficiency with Dynamic Dual-Precision Activations</h2>
+<p><u><strong>网络量化</strong></u><br>Network compression: sparsity, quantization, and binarization<br>使用低精度的浮点运算，相比于静态确定每个weight和activation的精度，本文<strong>根据网络输入</strong>(例如背景不需要精确计算)动态确定 <strong>Tuning the bit width per layer</strong></p>
+<h4 id="precision-gating">Precision Gating</h4>
+<blockquote>
+<p>Computes most features with low-precision arithmetic ops and only updates few important features to a high-precision  </p>
+</blockquote>
+<ol>
+<li>对于所有层低精度计算</li>
+<li>对于输出的feature map中较大值认为重要特征，对其进行稀疏更新，提高精度(sparse back propagation)</li>
+</ol>
+<p>用在shufflenet v2上提升26% ImageNet分类精度</p>
+<hr>
+<h2 id="repulsion-loss-detecting-pedestrians-in-a-crowd">Repulsion Loss: Detecting Pedestrians in a crowd</h2>
+<blockquote>
+<p>ReId的occlude问题，使不同目标的检测框远离「类似triplet loss」  </p>
+</blockquote>
+<p><img src="Figures/%E6%88%AA%E5%B1%8F2020-02-23%E4%B8%8A%E5%8D%8812.28.04.png" alt=""></p>
+<p><img src="https://latex.codecogs.com/svg.latex?L=L_{Attr}+\alpha*L_{RepGT}+\beta*L_{RepBox}" alt="latex_equ"></p>
+<h4 id="attraction-term">Attraction term</h4>
+<p>采用检测框架中bbox回归loss</p>
+<p><img src="https://latex.codecogs.com/svg.latex?L_{\mathrm{Attr}}=\frac{\sum_{P%20\in%20\mathcal{P}_{+}}%20\operatorname{Smooth}_{L%201}\left%28P,%20G_{A%20t%20t%20r}^{P}\right%29}{\left|\mathcal{P}_{+}\right|}" alt="latex_equ"></p>
+<h4 id="repulsion-term-repgt-">Repulsion Term (RepGT)</h4>
+<p>和周围GT目标框远离，远离IoU大且没有匹配的目标框<br>即<img src="https://latex.codecogs.com/svg.latex?G_{R%20e%20p}^{P}=\underset{G%20\in%20\mathcal{G}%20\backslash\left\{G_{A%20t%20r}^{P}\right\}}{\arg%20\max%20}%20\operatorname{IoU}%28G,%20P%29" alt="latex_equ"></p>
+<p>类似IoU loss（不是IoU而是IoG：若最小化IoU，则预测框越大IoU越小）</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{IoG}%28P,G%29%20\overset{\triangle}{=}\frac{area%28P\cap%20G%29}{area%28G%29}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?L_{\mathrm{RepGT}}=\frac{\sum_{P%20\in%20\mathcal{P}_{+}}%20\operatorname{Smooth}_{ln}\left%28\operatorname{IoG}%28P,%20G_{Rep}^{P}%29\right%29}{\left|\mathcal{P}_{+}\right|}" alt="latex_equ"></p>
+<p>where</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{smooth}_{l%20n}=\left\{\begin{array}{ll}%20{-\ln%20%281-x%29}%20&amp;%20{x%20\leq%20\sigma}%20\\%20{\frac{x-\sigma}{1-\sigma}-\ln%20%281-\sigma%29}%20&amp;%20{x&gt;\sigma}%20\end{array}\right." alt="latex_equ"><br>使预测框集中在匹配的目标附近，而不会偏移到临近物体</p>
+<h4 id="repulsion-term-repbox-">Repulsion Term (RepBox)</h4>
+<p>预测框和其他预测框远离（匹配上不同物体的目标框）<br><img src="https://latex.codecogs.com/svg.latex?L_{\mathrm{RepBox}}=\frac{\sum_{i%20\neq%20j}%20\operatorname{Smooth}_{l%20n}\left%28\operatorname{IoU}\left%28B^{P_{i}},%20B^{P_{j}}\right%29\right%29}{\sum_{i%20\neq%20j}%20\mathbb{1}\left[\operatorname{IoU}\left%28B^{P_{i}},%20B^{P_{j}}\right%29&gt;0\right]+\epsilon}" alt="latex_equ"></p>
+<p>防止不同物体的两个检测框被NMS过滤掉</p>
+<hr>
+<h2 id="normalization">Normalization</h2>
+<p><img src="Figures/2020-02-24-16-07-43-image.png" alt=""></p>
+<p>输入<img src="https://latex.codecogs.com/svg.latex?X" alt="latex_equ">， 输出<img src="https://latex.codecogs.com/svg.latex?Y" alt="latex_equ">，参数<img src="https://latex.codecogs.com/svg.latex?\gamma" alt="latex_equ">和<img src="https://latex.codecogs.com/svg.latex?\beta" alt="latex_equ"> (parameters, 每个特征图一对)</p>
+<p><img src="https://latex.codecogs.com/svg.latex?y_i=\gamma\cdot\frac{x_i-\mu}{\sigma}+\beta" alt="latex_equ"></p>
+<p>Where <img src="https://latex.codecogs.com/svg.latex?\mu=\frac{\sum_i^Nx_i}{N}" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\sigma=\sqrt{\frac{\sum_I^N%28x_i-\mu%29^2}{N}+\epsilon}" alt="latex_equ"> 均值和方差 (batch statistics)</p>
+<p>统计不同样本在同一个channel同一位置数据的均值方差 (reduce at batch dim hwc)</p>
+<p>反向传播时，由于均值和方差是输入的函数</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\frac{d_{\ell}}{d_{x_{i}}}=\frac{d_{\ell}}{d_{y_{i}}}%20\cdot%20\frac{\partial_{y_{i}}}{\partial_{x_{i}}}+\frac{d_{\ell}}{d_{\mu}}%20\cdot%20\frac{d_{\mu}}{d_{x_{i}}}+\frac{d_{\ell}}{d_{\sigma}}%20\cdot%20\frac{d_{\sigma}}{d_{x_{i}}}" alt="latex_equ"></p>
+<p>where <img src="https://latex.codecogs.com/svg.latex?\frac{\partial_{y_{i}}}{\partial_{x_{i}}}=\frac{\gamma}{\sigma}" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\frac{d_{\ell}}{d_{\mu}}=-\frac{\gamma}{\sigma}\sum_i^N\frac{d_{\ell}}{d_{y_{i}}}" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\frac{d_{\sigma}}{d_{x_{i}}}=-\frac{1}{\sigma}%28\frac{x_i\mu}{N}%29" alt="latex_equ"></p>
+<p><img src="Figures/bn1.png" alt="http://hangzh.com/blog/images/bn1.png"></p>
+<p>Ref: <a href="https://kevinzakka.github.io/2016/09/14/batch_normalization/">https://kevinzakka.github.io/2016/09/14/batch_normalization/</a></p>
+<p><a href="https://kiddie92.github.io/2019/03/06/卷积神经网络之Batch-Normalization（一）：How？/">https://kiddie92.github.io/2019/03/06/卷积神经网络之Batch-Normalization（一）：How？</a></p>
+<p><a href="https://www.cnblogs.com/shine-lee/p/11989612.html#卷积层如何使用batchnorm？">https://www.cnblogs.com/shine-lee/p/11989612.html</a></p>
+<h4 id="training">Training</h4>
+<p>==Batch Norm==对一个batch中所有样本的同一channel计算统计量，受batch_size影响</p>
+<p>==Layer Norm==对单个样本计算统计量，用于RNN</p>
+<p>==Instance Norm==单样本单通道计算，风格迁移</p>
+<p>==Group Norm==对通道分组，解决BN依赖batch_size的问题</p>
+<blockquote>
+<p>同一层特征通道之间关联性强，特征具有相同分布，可以group</p>
+</blockquote>
+<p>Switchable Normalization计算BN、LN、IN三种的统计量，然后加权<img src="https://latex.codecogs.com/svg.latex?w_k" alt="latex_equ">作为SN的均值<img src="https://latex.codecogs.com/svg.latex?\mu" alt="latex_equ">和方差<img src="https://latex.codecogs.com/svg.latex?\sigma" alt="latex_equ">「解决batch_size影响，自适应不同任务」</p>
+<p>norm👇</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\hat{h}_{n%20c%20i%20j}=\gamma%20\frac{h_{n%20c%20i%20j}-\Sigma_{k%20\in%20\Omega}%20w_{k}%20\mu_{k}}{\sqrt{\Sigma_{k%20\in%20\Omega}%20w_{k}^{\prime}%20\sigma_{k}^{2}+\epsilon}}+\beta" alt="latex_equ"></p>
+<p>加权权重归一化👇</p>
+<p><img src="https://latex.codecogs.com/svg.latex?w_k=\frac{e^{\lambda_k}}{\sum_{z\in\{\text%20{bn,ln,in}\}}e^{\lambda_z}}" alt="latex_equ"></p>
+<p><img src="Figures/2020-02-24-16-22-39-image.png" alt=""></p>
+<h4 id="testing">Testing</h4>
+<p>LN, IN正常计算，BN采用<u>batch average</u>方式，具体过程是，冻结所有的参数，从训练集中随机抽取一定数量的样本，计算SN的均值和方差，然后使用他们的平均值作为BN的统计值</p>
+<p>Ref: <a href="https://zhuanlan.zhihu.com/p/39296570">https://zhuanlan.zhihu.com/p/39296570</a></p>
+<h3 id="sync-bn">Sync BN</h3>
+<blockquote>
+<p>多卡训练时，传统BN只在单GPU上归一化，改成多个GPU之间同步信息；性能明显提升</p>
+</blockquote>
+<p>通过计算均值和方差的中间量<img src="https://latex.codecogs.com/svg.latex?\sum%20x" alt="latex_equ">和<img src="https://latex.codecogs.com/svg.latex?\sum%20x^2" alt="latex_equ">，只需同步一次</p>
+<p>根据<img src="https://latex.codecogs.com/svg.latex?D[x]=E[x^2]-E[x]^2" alt="latex_equ"></p>
+<p><strong>FP</strong> 计算均值和方差 <img src="https://latex.codecogs.com/svg.latex?\mu=\frac{\sum%20x}{N}" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\sigma=\sqrt{\frac{\sum%20x^2}{N}-\mu^2+\epsilon}" alt="latex_equ"></p>
+<p><strong>BP</strong> 计算<img src="https://latex.codecogs.com/svg.latex?\frac{d_{\ell}}{d_{x_{i}}}" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\frac{d_\ell}{d_{\sum_k%20x}}" alt="latex_equ">和<img src="https://latex.codecogs.com/svg.latex?\frac{d_\ell}{d_{\sum_k%20x^2}}" alt="latex_equ">，都可以单卡上计算，只同步一次</p>
+<p><img src="Figures/bn3-20200319223355972.png" alt="http://hangzh.com/blog/images/bn3.png"></p>
+<p>Ref: <a href="https://hangzhang.org/PyTorch-Encoding/notes/syncbn.html">https://hangzhang.org/PyTorch-Encoding/notes/syncbn.html</a></p>
+<p><strong>Improvement</strong>: MABN(移动平均+减少统计量+中心化权重) <a href="https://link.zhihu.com/?target=https%3A//arxiv.org/abs/2001.06838">https://arxiv.org/abs/2001.06838</a></p>
+<hr>
+<h2 id="universal-rcnn-universal-object-detection-via-transferable-graph-r-cnn">Universal-RCNN: Universal Object Detection via Transferable Graph R-CNN</h2>
+<blockquote>
+<p>解决检测域迁移，不同域<u><strong>类别</strong></u>关系推理()reasoning)和迁移(transfer)</p>
+</blockquote>
+<p><strong>Intra-Domain Reasoning</strong>: 域内部图表示上传播，类别之间相关性</p>
+<p><strong>Inter-Graph Transfer</strong>: 域间迁移，不同域类别之间层次关系</p>
+<p><img src="Figures/2020-02-25-20-41-49-image.png" alt=""></p>
+<h4 id="intra-domain-reasoning-module">Intra-Domain Reasoning Module</h4>
+<ol>
+<li><p>使用backbone计算proposal feature (global <strong>semantic pool</strong>)</p>
+</li>
+<li><p>构建<strong>区域</strong>关系图<img src="https://latex.codecogs.com/svg.latex?G_{T\to%20T}" alt="latex_equ">，节点表示region proposal，边表示关系。proposal之间关联关系(attribute similarities, interactions)</p>
+</li>
+<li><p>学习边权重<img src="https://latex.codecogs.com/svg.latex?\mathbf{Z}\mathbf{Z}^T" alt="latex_equ">，只保留重要proposal关系的<strong>稀疏邻接矩阵</strong></p>
+</li>
+<li><p>propsoal feature在GCN计算，和原始特征concat，得到新的global semantic pool <img src="https://latex.codecogs.com/svg.latex?\mathbf{P_S}" alt="latex_equ"></p>
+</li>
+</ol>
+<p>sharing common features between categories via connected edges such as similar attributes &amp; relations.</p>
+<p>improve feature rep. by adding adaptive contexts from global semantic pool</p>
+<h4 id="inter-domain-transfer-module">Inter-Domain Transfer Module</h4>
+<blockquote>
+<p>bridge the gap between domains</p>
+</blockquote>
+<p>源域用上述模块构建<img src="https://latex.codecogs.com/svg.latex?\mathbf{P_S}" alt="latex_equ">，构建<img src="https://latex.codecogs.com/svg.latex?\mathbf{G_{S\to%20T}}" alt="latex_equ">，GCN计算从源域到目标域迁移，concat源域特征</p>
+<p><img src="Figures/2020-02-25-22-03-19-image.png" alt=""></p>
+<hr>
+<h2 id="model-agnostic-structured-sparsification-with-learnable-channel-shuffle">Model-Agnostic Structured Sparsification with Learnable Channel Shuffle</h2>
+<blockquote>
+<p>划分group，conv<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">group conv，分组进行通道shuffle</p>
+</blockquote>
+<p>常见网络压缩方式 </p>
+<ol>
+<li><p>量化权重weight quantization </p>
+<p>低精度表示，易性能下降</p>
+</li>
+<li><p>知识蒸馏knowledge distillation </p>
+<p>易受教师网络影响</p>
+</li>
+<li><p>网络剪枝network pruning</p>
+<p>去掉部分unimportant网络参数 (eg. filter pruning algo.)</p>
+</li>
+</ol>
+<p>参数weight norm来判断是否prune「L1正则化可增加sparsity」</p>
+<p>使用GroupConv使通道间稀疏连接</p>
+<p>使用learning-based通道shuffle增强inter-group info flow</p>
+<p><strong>步骤</strong>：使用structured regularization训练大模型 <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> 将部分conv转为group conv <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> finetune恢复精度</p>
+<h4 id="connectivity-patterns">connectivity patterns</h4>
+<p>卷积核权重值<img src="https://latex.codecogs.com/svg.latex?W_{j,i}" alt="latex_equ">认为input output channel之间关联性</p>
+<p>卷积<strong>groupable</strong>：权重可以排列成<strong>block diagonal</strong></p>
+<p>👇一般conv的weights（channel之间关联程度）</p>
+<p><img src="/Users/mk/Library/Application Support/typora-user-images/image-20200226235116107.png" alt="image-20200226235116107"></p>
+<p>👇groupable conv，一个channel只和同组内几个channel有高响应，即block diagonal（👇有两个block，cardinality=2，每个block中的对角块0惩罚，block中左下右上块0.5惩罚，block块外1惩罚，见下下图）</p>
+<p><img src="/Users/mk/Library/Application Support/typora-user-images/image-20200226235221529.png" alt="image-20200226235221529"></p>
+<p>变为学习==划分channel==问题，损失函数惩罚左下右上没有被zero-out的权重，使用coordinate descent计算（线性规划问题，or optimal transport）</p>
+<h4 id="structured-regularization">Structured regularization</h4>
+<p><img src="/Users/mk/Library/Application Support/typora-user-images/image-20200227000502981.png" alt="image-20200227000502981"></p>
+<p>channel shuffle解释👇</p>
+<p><img src="/Users/mk/Library/Application Support/typora-user-images/image-20200227002933679.png" alt="image-20200227002933679"></p>
+<h2 id="cosine-learning-rate-decay">Cosine Learning rate decay</h2>
+<ol>
+<li>warm up：训练开始将lr从0逐步增加到初始值</li>
+<li>decay：使用cosine函数</li>
+</ol>
+<p><img src="Figures/1*BJCssPOCn4u__NoAZs392w-20200228202856582.png" alt="img"></p>
+<p>常见为step devay</p>
+<p><img src="Figures/stepdecay.png" alt="stepdecay"></p>
+<p>Ref: <a href="https://medium.com/@scorrea92/cosine-learning-rate-decay-e8b50aa455b">https://medium.com/@scorrea92/cosine-learning-rate-decay-e8b50aa455b</a></p>
+<h2 id="learning-when-and-where-to-zoom-with-deep-reinforcement-learning">Learning When and Where to Zoom with Deep Reinforcement Learning</h2>
+<blockquote>
+<p>分类任务中学习如何缩放，spatially-sample</p>
+</blockquote>
+<p><strong>Attention</strong>：<u>先LR</u>用saliency network产生attention map，然后<u>映射</u>到HR图片上使用</p>
+<p><img src="Figures/image-20200306005012796.png" alt="image-20200306005012796"></p>
+<p>学习：根据LR图像决策sample哪些HR图像。sample成本和准确率tradeoff</p>
+<p><img src="Figures/image-20200306010155518.png" alt="image-20200306010155518"></p>
+<ol>
+<li>👆由LR图片通过policy network计算出需要zoom-in的grid</li>
+<li>直接在HR上直接sample相应位置，构成path</li>
+<li>HR-patch和LR原图片(optional)输入分类网络分类</li>
+<li>分类损失reward返回给policy network</li>
+</ol>
+<p>适用于遥感/高分辨率图片分类/检测(?)</p>
+<hr>
+<h3 id="jaccard-distance">Jaccard distance</h3>
+<p>衡量两个set之间的距离</p>
+<p><strong>Jaccard index</strong>: <img src="https://latex.codecogs.com/svg.latex?J%28X,Y%29=\frac{|X\cap%20Y|}{|X\cup%20Y|}" alt="latex_equ"></p>
+<p><strong>Distance</strong>: <img src="https://latex.codecogs.com/svg.latex?D%28X,Y%29=1-J%28X,Y%29" alt="latex_equ"></p>
+<p>Ref: <a href="https://www.statisticshowto.datasciencecentral.com/jaccard-index/">https://www.statisticshowto.datasciencecentral.com/jaccard-index/</a></p>
+<hr>
+<h3 id="label-smoothing">Label Smoothing</h3>
+<p>针对数据集中<strong>错误标注</strong>，使<code>[0, 1]</code>变成<code>[0.2, 0.8]</code>，减弱正样本的loss，冲淡错误信号的影响</p>
+<p><img src="https://latex.codecogs.com/svg.latex?new\_onehot\_labels%20=%20labels%20*%20%281%20-%20label\_smoothing%29%20+%20label\_smoothing%20*%20\frac{1}{|labels|}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?new\_label=[0\;1]\times%281-0.2%29+0.2\times%20\frac{1}{2}=[0.1\;0.9]" alt="latex_equ"></p>
+<blockquote>
+<p>Large logit gaps combined with the bounded gradient will make the model less adaptive and too confident about its predictions.</p>
+</blockquote>
+<hr>
+<h2 id="bidet-an-efficient-binarized-object-detector">BiDet: An Efficient Binarized Object Detector</h2>
+<blockquote>
+<p>二值神经网络，使用Information Bottleneck理论简化网络(作为一个损失函数)</p>
+</blockquote>
+<p>检测任务看作<img src="https://latex.codecogs.com/svg.latex?X\to%20F\to%20L,C" alt="latex_equ">，图片到特征到类别位置</p>
+<p><strong>Information Bottleneck理论</strong></p>
+<p>目标为<img src="https://latex.codecogs.com/svg.latex?\min%20_{\phi_{b},%20\phi_{d}}%20I%28X%20;%20F%29-\beta%20I%28F%20;%20C,%20L%29" alt="latex_equ"></p>
+<p>最小化特征提取的互信息（信息增益，知道A对确定B的影响），最大化检测网络的互信息</p>
+<p><em>互信息可以看作网络的信息损失，互信息大，信息损失大。前半部分为网络提取足够的特征，后半部分为只检测有效的框，去除冗余信息</em></p>
+<p><strong>损失函数</strong>：<img src="https://latex.codecogs.com/svg.latex?\begin{aligned}%20&amp;\min%20J=J_{1}+J_{2}\\%20&amp;\begin{aligned}%20=&amp;\left%28\sum_{t,%20s}%20\log%20\frac{p\left%28f_{s%20t}%20|%20\boldsymbol{x}\right%29}{p\left%28f_{s%20t}\right%29}-\beta%20\sum_{i=1}^{b}%20\log%20\frac{p\left%28c_{i}%20|%20\boldsymbol{f}\right%29%20p\left%28\boldsymbol{l}_{1,%20i}%20|%20\boldsymbol{f}\right%29%20p\left%28\boldsymbol{l}_{2,%20i}%20|%20\boldsymbol{f}\right%29}{p\left%28c_{i}\right%29%20p\left%28\boldsymbol{l}_{1,%20i}\right%29%20p\left%28\boldsymbol{l}_{2,%20i}\right%29}\right%29%20\\%20&amp;-\gamma%20\cdot%20\frac{1}{m}%20\sum_{i=1}^{m}%20s_{i}%20\log%20s_{i}%20\end{aligned}%20\end{aligned}" alt="latex_equ"></p>
+<p>其中<img src="https://latex.codecogs.com/svg.latex?J_1" alt="latex_equ">为IB理论的优化目标，类别多项式分布，位置正态分布，<img src="https://latex.codecogs.com/svg.latex?p\left%28f_{s%20t}%20|%20\boldsymbol{x}\right%29" alt="latex_equ">通过采样得到</p>
+<p><img src="https://latex.codecogs.com/svg.latex?J_2=-\gamma%20\cdot%20\frac{1}{m}%20\sum_{i=1}^{m}%20s_{i}%20\log%20s_{i}" alt="latex_equ">为减少一张图中目标的自信息(<img src="https://latex.codecogs.com/svg.latex?s_i" alt="latex_equ">为第i个物体的objectness)。把一张图的多个物体分为多个block，使<img src="https://latex.codecogs.com/svg.latex?\sum^{m}_{i}s_i=1" alt="latex_equ">目标conf和为1，减少目标数量/假阳性，即让一张图内不要有多个high objectness的物体，限制为只有少量物体「<u>适用于每张照片目标较少的数据集</u>」</p>
+<hr>
+<h2 id="mixup-beyond-empirical-risk-minimization">Mixup: Beyond Empirical Risk Minimization</h2>
+<p>常见网络训练为<strong>ERM</strong>：训练数据为经验，记住所有样本，不能<u>泛化</u></p>
+<p>数据增强可以理解为<strong>VRM (vicinal risk minimization)</strong>：领域风险最小化，构造数据集样本的领域值，学习领域的小变化，但方式<u>dataset-dependent&amp;heuristic</u></p>
+<p>提出利用线性插值产生新的标注样本对，混合到数据集中训练「增加有噪声的样本」</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\tilde{x}=\lambda%20x_i+%281-\lambda%29x_j" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\tilde{y}=\lambda%20y_i+%281-\lambda%29y_j" alt="latex_equ"></p>
+<p>其中<img src="https://latex.codecogs.com/svg.latex?%28x_i,y_i%29" alt="latex_equ">和<img src="https://latex.codecogs.com/svg.latex?%28x_j,y_j%29" alt="latex_equ">为数据集中「标注-样本」对，<img src="https://latex.codecogs.com/svg.latex?\lambda\in%20[0,1]" alt="latex_equ"></p>
+<hr>
+<h2 id="hybrid-task-cascade-for-instance-segmentation">Hybrid Task Cascade for Instance Segmentation</h2>
+<blockquote>
+<p>实例分割，级联，mask和box同时采用cascade方式refine</p>
+</blockquote>
+<p><img src="Figures/image-20200321232008290.png" alt="image-20200321232008290"></p>
+<p>👆级联refine，box和mask两个分支。接受上一stage回归后的box作为输入，预测新的mask和box</p>
+<p><img src="Figures/image-20200321232235092.png" alt="image-20200321232235092"></p>
+<p>👆mask1是box1经过pool之后得到的，mask和box两个分支有交互，box<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">mask</p>
+<p><img src="Figures/image-20200321232338714.png" alt="image-20200321232338714"></p>
+<p>👆mask之间也进行信息交互</p>
+<p><img src="Figures/image-20200321232559233.png" alt="image-20200321232559233"></p>
+<p>交互方式👆，上一个stage的mask经过<code>1x1</code> conv，然后和box_pool相加，上一个stage的mask和box共同产生下一个stage的mask</p>
+<p><img src="Figures/image-20200321232644137.png" alt="image-20200321232644137"></p>
+<p>👆最后加入语义信息分支</p>
+<p>性能极强，速度慢👇</p>
+<p><img src="Figures/image-20200321232902678.png" alt="image-20200321232902678"></p>
+<p><img src="Figures/image-20200321233013589.png" alt="image-20200321233013589"></p>
+<hr>
+<h2 id="-">模型集成/集成学习</h2>
+<p>多个弱学习器集成组合为更精确更鲁棒模型</p>
+<p>单个模型 或为高偏置（低自由度模型），或为高方差（高自由度模型）。根据弱学习器的性能选择集成方法，高偏置使用<code>compose</code>，高方差使用<code>average</code></p>
+<p><img src="Figures/640.png" alt="img"></p>
+<h4 id="bagging-bootstrap-aggregating-">Bagging (bootstrap+aggregating)</h4>
+<p>并行的独立学习多个同质弱学习器，目标为<strong>减小方差</strong></p>
+<ol>
+<li>使用bootstrap方法从源数据集取样N个数据集，计算统计量「置信度，representative samples」</li>
+<li>使用N个数据集独立训练N个弱学习器</li>
+<li>最终结果由N个模型的预测投票得到</li>
+</ol>
+<p>如：随机森林</p>
+<h4 id="boosting">Boosting</h4>
+<p>迭代的拟合模型，串行，目标为<strong>减小偏置</strong></p>
+<ol>
+<li>训练集成学习器</li>
+<li>reweight数据集「关注难样本」</li>
+<li>加入新的弱学习器<img src="https://latex.codecogs.com/svg.latex?s_{l}%28.%29=s_{l-1}%28.%29+c_{l}%20\times%20w_{l}%28.%29" alt="latex_equ"> 「AdaBoost权重为<img src="https://latex.codecogs.com/svg.latex?\arg\min\limits_{C_i}%20Error" alt="latex_equ"> 性能越好贡献越大」</li>
+</ol>
+<p><img src="Figures/640-20200411154812850.png" alt="img"></p>
+<p>如：AdaBoost，GBDT</p>
+<h4 id="stacking">Stacking</h4>
+<p>多个弱学习器堆叠，学习元模型将其组合「例如：KNN+Logistic-Reg+SVM，NN将其组合」</p>
+<ol>
+<li>训练数据集分为两组</li>
+<li>第一组训练拟合弱学习器</li>
+<li>弱学习器在第二组上的预测，作为元模型的输入。在第二组数据集上拟合元模型</li>
+</ol>
+<p><img src="Figures/640-20200411155054069.png" alt="img"></p>
+<p>Ref: <a href="https://www.jiqizhixin.com/articles/2019-05-15-15">https://www.jiqizhixin.com/articles/2019-05-15-15</a>, <a href="https://zhuanlan.zhihu.com/p/27689464">https://zhuanlan.zhihu.com/p/27689464</a></p>
+<hr>
+<h2 id="improving-convolutional-networks-with-self-calibrated-convolutions-sc-conv-scnet-">Improving Convolutional Networks with Self-Calibrated Convolutions (SC Conv / SCNet)</h2>
+<blockquote>
+<p>在 Group Conv基础上改进卷积 heterogeneous</p>
+<p>拆分为不规则的操作</p>
+<p>增大感受野，大范围的context</p>
+</blockquote>
+<p><img src="Figures/image-20200512102143071.png" alt="image-20200512102143071"></p>
+<p>首先把原始特征图<u>通道上</u>分为两部分 <code>Group Conv</code></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathbf{X_1}" alt="latex_equ">为<strong>Self-Calibration</strong>分支，<img src="https://latex.codecogs.com/svg.latex?\mathbf{X_2}" alt="latex_equ">为卷积分支</p>
+<h4 id="self-calibration">Self-Calibration</h4>
+<p>分别在small scale的<code>latent</code>空间和large scale的<code>original</code>空间进行卷积操作，再融合<code>calibration</code></p>
+<p><strong>Latent空间</strong>：</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathbf{T}_{1}=\operatorname{AvgPool}_{r}\left%28\mathbf{X}_{1}\right%29" alt="latex_equ"> 下采样减小尺度</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathbf{X}_{1}^{\prime}=\operatorname{Up}\left%28\mathcal{F}_{2}\left%28\mathbf{T}_{1}\right%29\right%29=\mathrm{Up}\left%28\mathbf{T}_{1}%20*%20\mathbf{K}_{2}\right%29" alt="latex_equ"> 小尺度上卷积并upsample回原尺度</p>
+<p><strong>Original空间和latent空间融合</strong>：<img src="https://latex.codecogs.com/svg.latex?\mathbf{Y}_{1}^{\prime}=\mathcal{F}_{3}\left%28\mathbf{X}_{1}\right%29%20\cdot%20\sigma\left%28\mathbf{X}_{1}+\mathbf{X}_{1}^{\prime}\right%29" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\sigma" alt="latex_equ"> for sigmoid function</p>
+<p><strong>Final output</strong>：<img src="https://latex.codecogs.com/svg.latex?\mathbf{Y}_{1}=\mathcal{F}_{4}\left%28\mathbf{Y}_{1}^{\prime}\right%29=\mathbf{Y}^{\prime}%20*%20\mathbf{K_4}" alt="latex_equ"></p>
+<p>Self-calibration在小尺度操作，可以扩大感受野 (<em>Regional context</em>)，融合多尺度的信息</p>
+<p><img src="Figures/image-20200512103726329.png" alt="image-20200512103726329"></p>
+<hr>
+<h2 id="strip-pooling-rethinking-spatial-pooling-for-scene-parsing">Strip Pooling: Rethinking Spatial Pooling for Scene Parsing</h2>
+<blockquote>
+<p>带状pooling，各向异性特征，分割任务</p>
+</blockquote>
+<p><img src="Figures/image-20200530103440982.png" alt="image-20200530103440982"></p>
+<p>长条形感受野，&lt;font color=#FF0000 &gt;行感受野&lt;/font&gt;在每一行的所有列进行average，<u>压缩到1列</u>，pooling结果为列向量；&lt;font color=#0000FF &gt;列感受野&lt;/font&gt;在每一列的所有行average，<u>压缩到一行</u>，pooling结果为行向量</p>
+<p>然后扩展成原图尺寸，再fusion</p>
+<p>对长条状物体又帮助，可以集合任意两个位置的dependency (long-range)</p>
+<p><img src="Figures/image-20200530104233646.png" alt="image-20200530104233646"></p>
+<p><img src="Figures/image-20200530104306845.png" alt="image-20200530104306845"></p>
+<hr>
+<h2 id="res2net-a-new-multi-scale-backbone-architecture">Res2Net: A New Multi-scale Backbone Architecture</h2>
+<blockquote>
+<p>多尺度卷积，通用，但速度有下降；基于ResNet，可用于ResNeXt</p>
+</blockquote>
+<p>将一个卷积分成不同深度的操作，获得不同尺度的空间/语义信息</p>
+<p><img src="Figures/image-20200530113431833.png" alt="image-20200530113431833"></p>
+<p>相比ResNet，减少参数量提性能。同样GFLOPS，速度会慢，但精度更高；同样精度下，速度更快。</p>
+<p><img src="Figures/image-20200530113939005.png" alt="image-20200530113939005"></p>
+<hr>
