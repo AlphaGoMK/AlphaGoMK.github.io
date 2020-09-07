@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-F', '--file', type=str, default='')
@@ -29,8 +30,11 @@ for idx, l in enumerate(lines):
             else: 
                 x+=')'                 
             flag=not flag 
-            
-    assert flag==True 
+    try:
+        assert flag==True 
+    except:
+        print('\033[31mError\033[0m @ line [%d]'%(idx+1))
+        sys.exit(0)
     res.append(x) 
 
 with open(output_filename, 'w+') as f: 
