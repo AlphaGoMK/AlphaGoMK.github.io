@@ -117,9 +117,9 @@ AP-Loss为：
 
 优化时，衡量改变参数![latex_equ](https://latex.codecogs.com/svg.latex?\theta)后x的变化与最佳优化方向之间的相似度，以及L2正则
 
-![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\arg%20\min%20_{\Delta%20\boldsymbol{\theta}}\left\{-\left\langle\Delta%20\boldsymbol{x},%20\boldsymbol{x}\left%28\boldsymbol{\theta}^{%28n%29}+\Delta%20\boldsymbol{\theta}\right%29-\boldsymbol{x}\left%28\boldsymbol{\theta}^{%28n%29}\right%29\right\rangle+\lambda\|\Delta%20\boldsymbol{\theta}\|_{2}^{2}\right\}{% endraw %})，一阶泰勒展开算参数的优化方向
+![latex_equ](https://latex.codecogs.com/svg.latex?\arg%20\min%20_{\Delta%20\boldsymbol{\theta}}\left\{-\left\langle\Delta%20\boldsymbol{x},%20\boldsymbol{x}\left%28\boldsymbol{\theta}^{%28n%29}+\Delta%20\boldsymbol{\theta}\right%29-\boldsymbol{x}\left%28\boldsymbol{\theta}^{%28n%29}\right%29\right\rangle+\lambda\|\Delta%20\boldsymbol{\theta}\|_{2}^{2}\right\})，一阶泰勒展开算参数的优化方向
 
-由于参数变化![latex_equ](https://latex.codecogs.com/svg.latex?{% raw %}\mathcal{\theta}^{%28n+1%29}-\mathcal{\theta}^{%28n%29})在BP过程中不变，所以最佳优化方向![latex_equ](https://latex.codecogs.com/svg.latex?\Delta%20x_{ij}{% endraw %})即为x的梯度，链式求s的梯度
+由于参数变化![latex_equ](https://latex.codecogs.com/svg.latex?\mathcal{\theta}^{%28n+1%29}-\mathcal{\theta}^{%28n%29})在BP过程中不变，所以最佳优化方向![latex_equ](https://latex.codecogs.com/svg.latex?\Delta%20x_{ij})即为x的梯度，链式求s的梯度
 
 ![latex_equ](https://latex.codecogs.com/svg.latex?%2813%29\;\;\begin{aligned}%20g_{i}&=-\sum_{j,%20k}%20\Delta%20x_{j%20k}%20\cdot%20\frac{\partial%20x_{j%20k}}{\partial%20s_{i}}=\sum_{j}%20\Delta%20x_{i%20j}-\sum_{j}%20\Delta%20x_{j%20i}%20\\%20&=\sum_{j}%20L_{j%20i}%20\cdot%20y_{j%20i}-\sum_{j}%20L_{i%20j}%20\cdot%20y_{i%20j}%20\end{aligned})
 
@@ -202,7 +202,7 @@ SEPC模块用于取代RetinaNet的detection head的卷积模块
 
 ![image-20200717174956433](https://github.com/AlphaGoMK/Collections/tree/master/Notes/Figures/image-20200717174956433.png)
 
-![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\mathcal{H}_{c,%20x,%20y}=\sum_{k=1}^{C_{i%20n}}%20\sum_{i=-\frac{K-1}{2}}^{\frac{K-1}{2}}%20\sum_{j=-\frac{K-1}{2}}^{\frac{K-1}{2}}%20\mathcal{G}_{c,%20k,%20i,%20j}%20\mathcal{F}_{k,%20x+i%20D_{%28c,%20k%29},%20y+j%20D_{%28c,%20k%29}}{% endraw %})
+![latex_equ](https://latex.codecogs.com/svg.latex?\mathcal{H}_{c,%20x,%20y}=\sum_{k=1}^{C_{i%20n}}%20\sum_{i=-\frac{K-1}{2}}^{\frac{K-1}{2}}%20\sum_{j=-\frac{K-1}{2}}^{\frac{K-1}{2}}%20\mathcal{G}_{c,%20k,%20i,%20j}%20\mathcal{F}_{k,%20x+i%20D_{%28c,%20k%29},%20y+j%20D_{%28c,%20k%29}})
 
 扩张率在in通道上循环交替排布（👆T=4循环排列），在out通道维度上也循环排列
 
@@ -412,7 +412,7 @@ NATS和DetNAS搜索backbone，NAS-FPN搜FPN，Auto-FPN搜fusing和Head
 
 **分类上**采用对cleanliness的预测代替之前根据IoU的pos/neg的0/1预测，RPN的**soft-label**，<u>类似IoU-Net的预测IoU/soft-objectness</u>
 
-![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?c=\left\{\begin{array}{ll}\alpha%20\cdot%20\text{loc\_acc}+%281-\alpha%29%20\cdot%20\text%20{%20cls\_conf%20}%20&%20\text%20{%20for%20}%20b%20\in%20\mathcal{A}_{p%20o%20s}%20\\%200%20&%20\text%20{%20for%20}%20b%20\in%20\mathcal{A}_{n%20e%20g}\end{array}\right.{% endraw %})
+![latex_equ](https://latex.codecogs.com/svg.latex?c=\left\{\begin{array}{ll}\alpha%20\cdot%20\text{loc\_acc}+%281-\alpha%29%20\cdot%20\text%20{%20cls\_conf%20}%20&%20\text%20{%20for%20}%20b%20\in%20\mathcal{A}_{p%20o%20s}%20\\%200%20&%20\text%20{%20for%20}%20b%20\in%20\mathcal{A}_{n%20e%20g}\end{array}\right.)
 
 对按IoU划分的![latex_equ](https://latex.codecogs.com/svg.latex?\mathcal{A}_{pos})中部分较高IoU的anchor计算cleanliness，即回归分类的性能
 
@@ -440,7 +440,7 @@ densenet中不断的concat会让梯度反传时后面的梯度不断传到前面
 
 反传
 
-![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\begin{aligned}%20w_{1}^{\prime}%20&=f_{1}\left%28w_{1},%20\left\{%20g_{0}\right\}\right%29%20\\%20w_{2}^{\prime}%20&=f_{2}\left%28w_{2},\left\{g_{0},%20g_{1}\right\}\right%29%20\\%20w_{k}^{\prime}%20&=f_{k}\left%28w_{k},\left\{g_{0},g_{1},%20\ldots,%20g_{k-1}\right\}\right%29%20\end{aligned}{% endraw %})
+![latex_equ](https://latex.codecogs.com/svg.latex?\begin{aligned}%20w_{1}^{\prime}%20&=f_{1}\left%28w_{1},%20\left\{%20g_{0}\right\}\right%29%20\\%20w_{2}^{\prime}%20&=f_{2}\left%28w_{2},\left\{g_{0},%20g_{1}\right\}\right%29%20\\%20w_{k}^{\prime}%20&=f_{k}\left%28w_{k},\left\{g_{0},g_{1},%20\ldots,%20g_{k-1}\right\}\right%29%20\end{aligned})
 
 例如在最后一层计算过程中，由于和前面层直接连接，梯度会一直回传到w1
 
@@ -480,7 +480,7 @@ Non-local只对同一尺度的不同空间特征交互，改进space+scale
 
 先dot product计算i-query和j-key相似度，softmax标准化得到权重，和j-value相乘的到结果
 
-![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\begin{aligned}%20\text%20{%20Input:%20}%20&%20\mathbf{q}_{i},%20\mathbf{k}_{j},%20\mathbf{v}_{j}%20\\%20\text%20{%20Similarity:%20}%20&%20s_{i,%20j}=F_{\text%20{sim}}\left%28\mathbf{q}_{i},%20\mathbf{k}_{j}\right%29%20\\%20\text%20{%20Weight:%20}%20&%20w_{i,%20j}=F_{\text%20{nom}}\left%28s_{i,%20j}\right%29%20\\%20\text%20{%20Output:%20}%20&%20\tilde{\mathbf{X}}_{i}=F_{\text%20{mul}}\left%28w_{i,%20j},%20\mathbf{v}_{j}\right%29,%20\end{aligned}{% endraw %})
+![latex_equ](https://latex.codecogs.com/svg.latex?\begin{aligned}%20\text%20{%20Input:%20}%20&%20\mathbf{q}_{i},%20\mathbf{k}_{j},%20\mathbf{v}_{j}%20\\%20\text%20{%20Similarity:%20}%20&%20s_{i,%20j}=F_{\text%20{sim}}\left%28\mathbf{q}_{i},%20\mathbf{k}_{j}\right%29%20\\%20\text%20{%20Weight:%20}%20&%20w_{i,%20j}=F_{\text%20{nom}}\left%28s_{i,%20j}\right%29%20\\%20\text%20{%20Output:%20}%20&%20\tilde{\mathbf{X}}_{i}=F_{\text%20{mul}}\left%28w_{i,%20j},%20\mathbf{v}_{j}\right%29,%20\end{aligned})
 
 #### Self-Transformer (ST)
 
@@ -510,7 +510,7 @@ bottom-up, rendering high-level concept with low-level pixels
 
  ![latex_equ](https://latex.codecogs.com/svg.latex?\mathbf{K})首先GAP计算为权重![latex_equ](https://latex.codecogs.com/svg.latex?\mathbf{w})，权重![latex_equ](https://latex.codecogs.com/svg.latex?\mathbf{w})再和![latex_equ](https://latex.codecogs.com/svg.latex?\mathbf{Q})相乘refine，最后和downsample (conv+stride)的![latex_equ](https://latex.codecogs.com/svg.latex?\mathbf{V})相加
 
-![latex_equ]({% raw %}https://latex.codecogs.com/svg.latex?\begin{aligned}%20\text%20{%20Input:%20}%20&%20\mathbf{Q},%20\mathbf{K},%20\mathbf{V}%20\\%20\text%20{%20Weight:%20}%20&%20\mathbf{w}=G%20A%20P%28\mathbf{K}%29%20\\%20\text%20{%20Weight%20Query:%20}%20&%20\mathbf{Q}_{a%20t%20t}=F_{a%20t%20t}%28\mathbf{Q},%20\mathbf{w}%29%20\\%20\text{Down-sampled%20Value:%20}%20&%20\mathbf{V}_{d%20o%20w}=F_{sconv}%28\mathbf{V}%29\\%20\text{Output:%20}%20&%20\hat{\mathbf{X}}^{c}=F_{a%20d%20d}\left%28F_{\text%20{conv%20}}\left%28\mathbf{Q}_{a%20t%20t}\right%29,%20\mathbf{V}_{\text%20{dow}}\right%29\end{aligned}{% endraw %})
+![latex_equ](https://latex.codecogs.com/svg.latex?\begin{aligned}%20\text%20{%20Input:%20}%20&%20\mathbf{Q},%20\mathbf{K},%20\mathbf{V}%20\\%20\text%20{%20Weight:%20}%20&%20\mathbf{w}=G%20A%20P%28\mathbf{K}%29%20\\%20\text%20{%20Weight%20Query:%20}%20&%20\mathbf{Q}_{a%20t%20t}=F_{a%20t%20t}%28\mathbf{Q},%20\mathbf{w}%29%20\\%20\text{Down-sampled%20Value:%20}%20&%20\mathbf{V}_{d%20o%20w}=F_{sconv}%28\mathbf{V}%29\\%20\text{Output:%20}%20&%20\hat{\mathbf{X}}^{c}=F_{a%20d%20d}\left%28F_{\text%20{conv%20}}\left%28\mathbf{Q}_{a%20t%20t}\right%29,%20\mathbf{V}_{\text%20{dow}}\right%29\end{aligned})
 
 #### 总体架构
 
@@ -674,4 +674,3 @@ DFL和IoU-loss优化bbox回归，分别建模uncertainty和IoU最大；QFL优化
 Ref: https://zhuanlan.zhihu.com/p/147691786
 
 ---
-

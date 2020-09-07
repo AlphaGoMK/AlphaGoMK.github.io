@@ -1,0 +1,804 @@
+<h1 id="object-detection">Object Detection</h1>
+<h2 id="map">mAP</h2>
+<blockquote>
+<p>AP is averaged over all categories. Traditionally, this is called “mean average precision” (mAP). We make no distinction between AP and mAP (and likewise AR and mAR) and assume the difference is clear from context.  </p>
+</blockquote>
+<p><a href="https://medium.com/@jonathan_hui/map-mean-average-precision-for-object-detection-45c121a31173">mAP (mean Average Precision) for Object Detection - Jonathan Hui - Medium</a></p>
+<hr>
+<h2 id="cornernet">CornerNet</h2>
+<blockquote>
+<p>anchor-free</p>
+</blockquote>
+<h4 id="motivation">Motivation</h4>
+<ol>
+<li>anchor box太多，只有少部分和GT重合</li>
+<li>anchor 选择需要人为设计（数量，尺寸，比例），不同尺度anchor设置不同</li>
+</ol>
+<p>两个部分： 1) 检测角网络，左上+右下 2) 嵌入网络，用于匹配角点</p>
+<h4 id="method">Method</h4>
+<p><img src="Figures/1e682da0e78dfe82e953f541d1580f86f14af8f6.png" alt=""></p>
+<p><strong>检测corner网络</strong>：提特征之后，经过corner pooling产生每个类别的左上角和右下角的heat map。为正负样本匹配，只惩罚GT一定范围外的预测点（通过IoU threshold限制radius）<br><strong>计算嵌入embed网络</strong>：用于匹配同框的左上右下。损失函数：同框左上和右下接近（variance小），不同框的平均embed距离大。<br><strong>Corner pooling</strong> ：解决角点特征少，取一条线上的最大值pooling<br><img src="Figures/63eebde8b0adc4b30eacb0eb14e2b291b78b0e87.png" alt=""><br><em>Hourglass network</em>：提特征</p>
+<p><strong>two stage得到预测框之后采用RoI pooling/align提取检测框内部的信息，只有内部信息(approx.)的特征再进行一次框定和分类（refine步骤）；而一阶段的方法在提取到特征之后分成两支进行框定和分类，没有对近似的只包含框内物体的特征(局部特征)进行再一次提取，所以精度较差</strong></p>
+<hr>
+<h2 id="centernet">CenterNet</h2>
+<blockquote>
+<p>anchor-free</p>
+</blockquote>
+<h4 id="motivation">Motivation</h4>
+<p>CornerNet只用到边缘的特征信息，没有用到内部的特征信息（造成不止对物体的边缘敏感，也对背景的边缘敏感）。内部信息对于决定两个keypoint是否是同一个框有帮助。<br>CenterNet预测三元组：左上，右下，中心</p>
+<h4 id="method">Method</h4>
+<p><img src="Figures/d9ab741df8f3e313182e9e5f3f47cc6d89eba5c4.png" alt=""><br>二分支：产生corner点并match形成框；产生center点。如果center点在框的central region，计算框，否则删除<br><u><strong>central region</strong></u> 确定判定的中心区域的大小：大框偏小，小框偏大，整体线性</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\left\{\begin{array}{l}%20{\operatorname{ctl}_{\mathrm{x}}=\frac{%28n+1%29%20\mathrm{tl}_{\mathrm{x}}+%28n-1%29%20\mathrm{br}_{\mathrm{x}}}{2%20n}}%20\\%20{\operatorname{ctl}_{\mathrm{y}}=\frac{%28n+1%29%20\mathrm{tl}_{\mathrm{y}}+%28n-1%29%20\mathrm{br}_{\mathrm{y}}}{2%20n}}%20\\%20{\operatorname{cbr}_{\mathrm{x}}=\frac{%28n-1%29%20\mathrm{tl}_{\mathrm{x}}+%28n+1%29%20\mathrm{br}_{\mathrm{x}}}{2%20n}}%20\\%20{\operatorname{cbr}_{\mathrm{y}}=\frac{%28n-1%29%20\mathrm{tl}_{\mathrm{y}}+%28n+1%29%20\mathrm{br}_{\mathrm{y}}}{2%20n}}%20\end{array}\right." alt="latex_equ"><br>N离散变化，过threshold后变系数n。小<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">threshold<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">大，3<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">5</p>
+<h4 id="enrich-centercorner-information">Enrich center&amp;corner information</h4>
+<p><u><strong>center pooling</strong></u> 用在预测中心点时，增加中心点的recognizable特征</p>
+<pre><code>例如找leftmost的（即把horizontal最大值传到最左边），每个点看自己到最右边的最大值，不断传，到最左可获得整条横线最大；找topmost（把vertical最大值传到最上面），每个点看自己到最下，不断传，到最上则可获得整条线最大
+</code></pre><p>模块&amp;示意图<br><img src="Figures/ade09a091bb57b300358c745de23118416db2913.png" alt=""><br><img src="Figures/ca0373639965a7c36e025eeef214af59716f68eb.png" alt=""></p>
+<p>输出map表示是否为center点，然后找横向和纵向最大值</p>
+<p><u><strong>cascade corner pooling</strong></u> 增加角点的特征，相比corner pooling增加内部，使其不对边缘敏感<br>沿着边缘找边缘最大值，再从边缘最大值的位置 <em>向内找内部最大值</em> ，最后两个最大值相加<br>模块&amp;示意图<br><img src="Figures/cc6e39c86f14d245507fb1c4c2f691d87dc5a3c7.png" alt=""><img src="Figures/caa1d357e9dd10d63c81d52dcd69b0d045d9b9a3.png" alt=""></p>
+<blockquote>
+<p>Q: how to classification?<br>Need RoI align?  </p>
+</blockquote>
+<hr>
+<h2 id="fcos-fully-convolutional-one-stage-object-detection">FCOS: Fully Convolutional One-Stage Object Detection</h2>
+<blockquote>
+<p>anchor-free 消除anchor，减少IoU的计算和GT框的匹配。可以代替二阶段的RPN</p>
+</blockquote>
+<p>按照像素进行预测<u><strong>per-pixel prediction</strong></u>，预测每一个像素点的四个维度的框 <code>(Left, Top, Right, Bottom)</code>👇<br><img src="Figures/433cf8512698164d44e845d1d67fcaf628708061.png" alt=""></p>
+<ul>
+<li><p>对于特征图上每一个点，对应一个原图上的框。直接把特征图上的像素点看成训练样本而不是在点上铺不同长宽比和大小的anchor框</p>
+</li>
+<li><p>对于一个点落在多个GT框中（ambiguous samples）选择最小的bbox作为target。同时通过multi-level prediction来减少数量。👇<br><img src="Figures/376354c1dd3cfbe7facc6debbe8335f845c44e19.png" alt="">👆which bbox this location should regress？</p>
+</li>
+<li><p>FCOS可以利用尽可能多的样本（特征图上的点形成的框）而不只是IoU足够大的anchor 来进行训练。每个点都去学习对框的预测，多个点共同产生多个类似的框，然后NMS选择最大的</p>
+</li>
+<li><p>对于ambiguous samples，采用多尺度特征图，每层限制4D vec中最大值的大小（<u><strong>限制每层特征图产生的bbox的大小</strong></u>），满足<img src="https://latex.codecogs.com/svg.latex?m_i%20&lt;%20\max%28l,t,r,b%29%20&lt;%20m_{i+1}" alt="latex_equ">。对于同一个点上多个框，因限制，所以在不同尺度特征图上构成的框进行regress，一个feature map上一个点只负责固定尺度的框回归。如果还出现重复，则选择尺寸最小</p>
+</li>
+<li><p>防止远离物体中心的点产生质量差的框，center-loss。<img src="https://latex.codecogs.com/svg.latex?centerness^*=\sqrt{\frac{\min%28l^*,r^*%29}{\max%28l^*,r^*%29}\times%20\frac{\min%28t^*,b^*%29}{\max%28t^*,b^*%29}}" alt="latex_equ"></p>
+<p>使<u><strong>左和右，上和下的长度尽可能相等</strong></u>。测试时centerness-weighted classification confidence，抑制偏远框👇<br><img src="Figures/d39a52432c2c3225142d3500869baf40e3c73b58.png" alt=""><br>网络结构👇<br><img src="Figures/8b5702a9ed96bc002a55b079d5b531be343ca142.png" alt=""></p>
+</li>
+</ul>
+<hr>
+<h2 id="centripetalnet-pursuing-high-quality-keypoint-pairs-for-object-detection">CentripetalNet: Pursuing High-quality Keypoint Pairs for Object Detection</h2>
+<p><img src="Figures/image-20200428214951683.png" alt="image-20200428214951683"></p>
+<hr>
+<h2 id="saccadenet-a-fast-and-accurate-object-detector">SaccadeNet: A Fast and Accurate Object Detector</h2>
+<p><img src="Figures/image-20200428220100664.png" alt="image-20200428220100664"></p>
+<p>同时预测中心<code>Center Attentive Module</code>和角点<code>Attention Transitive Module</code>，得到粗框，使用<code>Aggregation Attentive Module</code>双线性插值重新采样feature map，得到精细框，<u>轻量级边框细化</u>。<code>Corner Attentive Module</code>辅助训练。</p>
+<p><code>Center-AM</code><u>距离惩罚</u>训练，采用Gaussian heat map作为GT <img src="https://latex.codecogs.com/svg.latex?e^{\frac{\left\|X-X_{k}\right\|^{2}}{2%20\sigma^{2}}}" alt="latex_equ"></p>
+<p>相比CornerNet增加了中心特征，相比FCOS增加了边缘特征，相比CenterNet加速</p>
+<h2 id="mask-rcnn">Mask RCNN</h2>
+<p>参考<a href="https://zhuanlan.zhihu.com/p/37998710">https://zhuanlan.zhihu.com/p/37998710</a></p>
+<h4 id="-">网络结构</h4>
+<p><img src="Figures/2020-02-17-23-33-00-image.png" alt=""></p>
+<h4 id="roi-align">RoI Align</h4>
+<p><img src="Figures/2020-02-17-23-32-25-image.png" alt=""></p>
+<p><img src="Figures/2020-02-17-23-33-41-image.png" alt=""> 👆loss计算时<code>w*h*c</code>的mask输出，只计算<u>分类分支预测的类别</u>对应channel的sigmod输出作为损失「<strong>语义mask预测与分类预测解耦</strong>」</p>
+<hr>
+<h2 id="hbonet-harmonious-bottleneck-on-two-orthogonal-dimensions">HBONet: Harmonious Bottleneck on Two Orthogonal Dimensions</h2>
+<blockquote>
+<p>light-weight </p>
+</blockquote>
+<p>包含两个部分 <em>spatial contraction-expansion</em> 和 <em>channel expansion-contraction</em> ，独立作用在特征图的 orthogonal dimension。前者通过减少特征图大小减少计算量，后者通过提升informative feature提升性能</p>
+<blockquote>
+<p>mobilenet通过分离成<em>point-wise</em>和<em>depth-wise</em>来分别不变尺寸变通道数和不变通道数变尺寸(up/down sampling)     so called <em>depthwise separable conv</em><br>shufflenet通过group conv减少通道上的计算量，channel-shuffle来增加不同通道之间的连接<br>👆previous work focus on <strong>channel transformation</strong>, introduce <strong>spatial feature dim(size)</strong>  </p>
+</blockquote>
+<ul>
+<li>提升通道数可以提升信息，但是增加计算开销. 提出<em>Two reciprocal components work on orthogonal dimension</em>.<u><strong>通道数扩展时，尺寸减少</strong></u></li>
+<li>相比mobilenet增加<strong>spatial contraction缩小-expansion放大到输入的大小</strong>，类似Squeeze-Excitation Network的先缩后放的思路<br>模块，对比mobilenet👇<br><img src="Figures/7a0feef0d97e42bab4044301662546ba8c93851c.png" alt=""><br>计算量👇<br><img src="Figures/a43e53f7f1c22a59e7b1079ac38e14d39292c07b.png" alt=""></li>
+<li>增加residual path，减少主干计算and <strong>feature reuse</strong>. Inverted residual with harmonious bottleneck👇<br><img src="Figures/6c1529ac24e533703ca3c5dcdc70f721512e2ac1.png" alt=""></li>
+<li>For Object detection: use <strong>MobileNet V2 SSD</strong> utilize the <strong>warm-up</strong> strategy which linearly ramps up the learning rate from a close-to-zero one 1e-6 to the normal initial learning rate of 1e-3 during the first 5 epochs. </li>
+</ul>
+<hr>
+<h3 id="ssd-">SSD网络时间</h3>
+<ol>
+<li>网络运行时间：0.002-0.003s 在GPU运行</li>
+<li>detect（NMS为主）运行时间：0.013-0.016s 只在 <em>CPU</em> 上运行 <u><strong>瓶颈</strong></u></li>
+</ol>
+<p>尺度减少，aspect ratio减少<br>Shallow feature map only for small<br>Deep ONLY large<br>低秩简化<br>PointRend</p>
+<p><u><strong>特征融合<br>cascade</strong></u></p>
+<hr>
+<h2 id="cascade-rpn">Cascade RPN</h2>
+<p><u>Single anchor per location + multi-stage refinement</u></p>
+<blockquote>
+<p>一次回归不到（距离太远），多次回归</p>
+<p>回归多次后anchor点处的特征和移动anchor所在位置特征不匹配<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">deformable conv</p>
+<p>匹配的anchor位置不变(还是最初始点对应的anchor)，但是提取特征的位置改变👇👇</p>
+</blockquote>
+<p><img src="Figures/%E5%9B%BE%E5%83%8F.jpeg" alt="图像"></p>
+<h4 id="motivation">Motivation</h4>
+<p>predefined anchor在GT和anchor对齐时限制性能/偏差，(#toread RoIPool RoIAlign)</p>
+<ol>
+<li><strong>single anchor</strong> + incorporates <strong>criteria</strong> of anchor/anchor-free in defining <strong>positive</strong> boxes</li>
+<li><strong>adaptive convolution</strong> to maintain the alignment between anchor boxes and features</li>
+</ol>
+<p>Iterative RPN每次把anchor集合<strong>看作新的anchor</strong>进行refine，导致每次迭代后anchor位置和形状发生变化，anchor和表示anchor特征不匹配「 <strong>anchor中心点的特征(即表示anchor的特征)不发生变化，但是anchor的位置发生变化</strong> ，mismatch」<br>👆使用deformable conv解决，but <em>no constraint to enforce</em> 🙅‍♂️</p>
+<h4 id="adaptive-convolution">Adaptive Convolution</h4>
+<p>卷积采样的时候增加offset field<br><code>offset = center offset + shape offset</code>中心的偏移和形状偏移(由anchor形状和kernel决定)</p>
+<p><img src="Figures/d5cd3e96c3f74c043b11af85568fd780d34c03b6.png" alt=""></p>
+<p>👆对比deformable conv：偏移量由anchor和kernel决定，非网络学习➡️anchor和feature对齐</p>
+<h4 id="sample-discrimination-metrics">Sample Discrimination Metrics</h4>
+<p>每个位置只有一个anchor，然后迭代refine</p>
+<blockquote>
+<p>Determining whether a training sample is pos/neg as the use of anchor/anchor-free is adversarial 两种方法决定正负样本的方法不同</p>
+</blockquote>
+<p>👆即anchor-free的决定方式宽松/数量多，anchor-based标准严格/数量少<br>Stage 1: anchor-free➡️更多正样本「解决正负样本不匹配」<br>Stage 2: amchor-based➡️严格，数量减少，IoU高<br><code>anchor-free</code>指FCOS，中心点在物体内为pos anchor<br><code>anchor-based</code>指Faster RCNN，IoU threshold</p>
+<h4 id="cascade-rpn">Cascade RPN</h4>
+<p>前一个阶段的输出bridge到后一个阶段<br>由anchor计算出offset <code>o</code>，再和feature <code>x</code>输入regressor计算新的anchor ( <img src="https://latex.codecogs.com/svg.latex?\sigma" alt="latex_equ">就是anchor回归的目标 eg. <img src="https://latex.codecogs.com/svg.latex?%28tx-ax%29/aw" alt="latex_equ"> )</p>
+<p><img src="Figures/407d8090a6d3898e6971c85df18ba81b99684580.png" alt=""></p>
+<hr>
+<h2 id="detnet">DetNet</h2>
+<blockquote>
+<p>为检测任务设计backbone  </p>
+</blockquote>
+<p>现有的ImageNet backbone： 1. 网络stage需要增加，且未在imagenet训过 2. down-sample和stride损失空间信息，大目标边界模糊 3. 小目标「空间分辨率低」</p>
+<hr>
+<h2 id="tridentnet">TridentNet</h2>
+<blockquote>
+<p>Scale variation <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> Different <u><strong>receptive fields</strong></u>  </p>
+</blockquote>
+<p>多分支网络，分支结构相同权重共享，每个分支不同的感受野对应检测不同尺度范围的物体<br>不同感受野使用<code>dilated_conv</code>实现👉参数相同<br>权重共享：减少参数量，inference时只选择一个主分支<br><img src="Figures/ac7b0f86651341d53a16ca349d1b6deb5414d9c7.png" alt=""></p>
+<p><u>Image Pyramid</u> (Multi-scale training&amp;testing): time-consuming<br><u>Feature Pyramid</u>: use different params to predict different scale (not uniform) </p>
+<p><strong>trident block</strong>👇</p>
+<p><img src="Figures/118a7989f6f926f41e2581e0c102f9c6d3c665e0.png" alt=""><strong>Scale-aware Training Scheme</strong>：每个branch只对长宽在一定范围的proposal进行训练「一张图片使用不同branch(不同dilate rate)训练不同尺度的proposal」<br>其他参数相同(make sense?) </p>
+<p><strong>预测</strong>：计算每个分支的预测输出，filter out掉超过尺寸范围的box <strong>TridentNet Fast</strong>：预测只采用单分支<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">中间分支预测，得益于三分支权重共享，效果接近</p>
+<hr>
+<h2 id="sniper-efficient-multi-scale-training">SNIPER: Efficient Multi-Scale Training</h2>
+<blockquote>
+<p>解决多尺度问题, 不构建feature pyramid, <u><strong>多尺度训练策略</strong></u>, 尺寸适应网络</p>
+</blockquote>
+<p><strong>Scale Invariant</strong>: <em>RCNN</em>将proposal缩放到同一个尺度，检测网络只需要学习一种尺度的检测。而为了适应不同尺度，多尺度训练的<em>Faster RCNN</em>对整个图片进行放缩，proposal也放大缩小，检测网络学习适应多种尺度。 <u>通过网络capacity记忆不同scale的物体</u> ，浪费capacity</p>
+<blockquote>
+<p><em>Process context regions around GT instances(chips) at appropriate scale</em><br>截取固定尺寸的chip(eg <code>3x3, 5x5, 7x7</code>)对应不同尺度，然后resize到相同大小(low-res)去训练<br>小目标zoom-in，大目标zoom-out  </p>
+</blockquote>
+<h4 id="pos-chips">Pos chips</h4>
+<p><img src="Figures/ff21eb5b057a444a8bb5207b3cc2b71dc5fdde7b.png" alt=""><br>👆chip从最小的cover某个GT box开始，直到最多的box被这个chip cover到<br>「chip尺寸不变，围绕cover这个GTbox转，直到最大化cover的box数量」</p>
+<ol>
+<li>每个box至少被一个chip cover</li>
+<li>一个物体可能被多个chip cover</li>
+<li>一个物体在不同尺度chip中可能valid or not</li>
+<li>截断的物体保留</li>
+</ol>
+<h4 id="neg-chips">Neg chips</h4>
+<p><img src="Figures/58422bc9dea8dd52de0f8214533a4c54c7d97cc6.png" alt="">👆只有pos chips会导致网络只对GT附近小范围的图片训练 <em>iconic</em>，缺乏 <u>背景</u> 。增加<strong>难样本</strong>作为neg chips<br>Metrics:</p>
+<ol>
+<li>如果区域没有proposal，认为是easy background，忽略</li>
+<li>去掉被pos chip cover的proposal「proposal和GT接近，易于区分」</li>
+<li>贪心选择至少cover M个剩余proposal的作为neg chips</li>
+</ol>
+<p>训练时可控制neg chip数量，类似OHEM<br><u>分辨率和准确率关系可能不大，过多context可能不必要</u><br>Ref: <a href="https://arleyzhang.github.io/articles/f0c1556d/">目标检测-SNIPER-Efficient Multi-Scale Training-论文笔记 | arleyzhang</a></p>
+<hr>
+<h2 id="stitcher-feedback-driven-data-provider-for-object-detection">Stitcher: Feedback-driven Data Provider for Object Detection</h2>
+<blockquote>
+<p>小目标，粘贴构造训练样本</p>
+</blockquote>
+<p>小目标数据集中分布不均匀(41.4%的小目标只出现在52.3%的图片中)，小目标在训练过程中贡献的loss低，学不好</p>
+<p>把图片缩小，拼接在一起（和SNIPER切割相反）</p>
+<p><img src="Figures/image-20200620175602128.png" alt="image-20200620175602128"></p>
+<p><strong>把大物体和中物体都变成小物体，增加小尺度的分布</strong></p>
+<p>小目标：检测时放大❌，训练时缩小✅</p>
+<p>loss作为反馈信号，<strong>小目标产生loss不足(<img src="https://latex.codecogs.com/svg.latex?r^t_s&lt;\tau" alt="latex_equ">)则下个iter采用stitch，缺啥补啥</strong></p>
+<p><img src="Figures/image-20200620175826519.png" alt="image-20200620175826519"></p>
+<p><img src="Figures/image-20200620175926012.png" alt="image-20200620175926012"></p>
+<hr>
+<h2 id="hrnet-deep-high-resolution-representation-learning-for-visual-recognition">HRNet: Deep High-Resolution Representation Learning for Visual Recognition</h2>
+<blockquote>
+<p>处理过程中保持高分辨率「position-sensitive task」<br>maintain high-res representation through the whole process<br>不同于skip connection：高分辨分支平行conv，通过fusion而不是add融合高低分支，多分辨率输出<br>不同于特征金字塔：高低分辨率平行计算（low-res增加分辨率下conv计算，不是通过high-res一次卷积downsample得到，<strong>逐步平行</strong>计算增加）  </p>
+</blockquote>
+<p>先前网络：encode high <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> low，recover low <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> high<br>提出网络：运算时<strong>保持高分辨率</strong>分支，<strong>平行</strong>的加入低分辨率分支；<strong>multi-res fusion</strong></p>
+<h4 id="parallel-multi-res-conv">Parallel multi-res conv</h4>
+<p><img src="Figures/24dc1e9896b61be4bef3511cd8a870ed0fd0e31c.png" alt="">👆每个stage <u>逐步加入一个低分辨率(eg 1/2)</u> 分支，且保持原有分辨率分支<br>类似 <u>group conv</u> ，通道分别 <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> 分辨率分别</p>
+<h4 id="repeated-multi-res-fusion">Repeated multi-res fusion</h4>
+<p>每个stage(4个unit/block)交换不同分辨率的信息<br><img src="Figures/e4187388dd2d925fbbd3c4f199e3d5e8c830eb90.png" alt="">👆high <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> low: stride conv; low <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> high: bilinear upsampling + 1x1 conv<br>an <u>extra</u> output for lower res output<img src="Figures/7ac095e7bf586fccf3c9b8de1caf0658163c37eb.png" alt="">👆融合类似FC</p>
+<h4 id="multi-res-representation-head-">Multi-res representation head/不同任务不同输出模式</h4>
+<p><img src="Figures/a2036193f4b7513cffb8bb02a77b3e3cbf9ab787.png" alt="">(a) 关键点检测 (b) segmentation (c) object detection</p>
+<hr>
+<h2 id="region-proposal-by-guided-anchoring">Region Proposal by Guided Anchoring</h2>
+<blockquote>
+<p>更好的anchor，<strong>改进产生anchor的过程</strong>「非密铺」<br>anchor与feature: <u><strong>alignment</strong></u> + <u><strong>consistency</strong></u> </p>
+</blockquote>
+<p>两个分支分别对anchor的中心点和长宽进行预测，防止offset偏移过大，anchor和点的feature不对应<br>采用<strong>deformable conv</strong>使feature的范围和anchor的形状对应，每个位置anchor形状不同而capture不同的特征「加offset以适应anchor形状」<br><img src="Figures/ec5348cb3efb80de6adb90ab09fac616f97681bd.png" alt=""></p>
+<h4 id="guided-anchoring">Guided Anchoring</h4>
+<p><img src="https://latex.codecogs.com/svg.latex?p%28x,y,w,h|I%29=p%28x,y|I%29p%28w,h|x,y,I%29" alt="latex_equ"><br><strong>分两步产生anchor</strong>「减小同时预测xywh时出现的偏移不对应」</p>
+<ol>
+<li>location：预测objectness，之后采用mask_conv <strong>减少区域计算</strong><br>只对物体的中心(及附近)为pos训练，预测物体中心「边缘不容易回归框」</li>
+<li>shape：预测每个位置上的best shape，位置不变只变长宽，不会misalign<br>预测<img src="https://latex.codecogs.com/svg.latex?w=k\times%20e^{dw}" alt="latex_equ">，预测dw，而不是w，范围更大👇<br><img src="https://latex.codecogs.com/svg.latex?w=\sigma%20\cdot%20s%20\cdot%20e^{dw},%20\;%20h=\sigma%20\cdot%20s%20\cdot%20e^{dh}" alt="latex_equ"></li>
+</ol>
+<p>选择高于thresh的location中，概率最高的shape，产生anchor</p>
+<h4 id="feature-adaptation">Feature adaptation</h4>
+<p><strong>consistency</strong>: 每点对应的anchor长宽不同，所以学习到特征对应区域的长宽也应该不同<br><img src="https://latex.codecogs.com/svg.latex?\mathbf{f}&#39;_i=\mathcal{N}_T%28\mathbf{f}_i,w_i,h_i%29" alt="latex_equ"><br>基于对应anchor的长宽，改变特征（xy不变，位置branch只预测objectness score）<br>👆使用deformable convolution实现</p>
+<h4 id="anchor-shape-target">Anchor shape target</h4>
+<p>训练时anchor和gt box的匹配，训练目标。wh为变量，无法计算IoU</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathbf{vIoU}%28a_{\mathbf{wh}},\mathbf{gt}%29=\max\limits_{w&gt;0,h&gt;0}{\mathbf{IoU}_{normal}%28a_{\mathbf{wh}},\mathbf{gt}%29}" alt="latex_equ"></p>
+<p>方法：Sample常见的wh组合，计算和GT的IoU，得到vIoU👆，作为anchor和gt IoU的估计，之后采用常见anchor分配方法确定训练目标</p>
+<h4 id="high-quality-proposal">High quality proposal</h4>
+<p>由于生成的anchor更好，pos样本数量更多。训练样本分布符合proposal分布<br>设置 <u>更高正负样本比例</u> ，同时 <u>更少样本</u> 数量，即 <u>更高IoU threshold</u></p>
+<hr>
+<h2 id="soft-nms">Soft NMS</h2>
+<blockquote>
+<p>解决密集 _相邻_ 物体的检测框重叠IoU大，可能在NMS过程中 <u><strong>误删</strong></u><br>密集物体检测有提升  </p>
+</blockquote>
+<h4 id="nms">NMS</h4>
+<p>按照置信度排序，选择最大的box i保留。其余box中，与I的IoU&gt;threshold的删除(置信度置为0)。再从剩下box选择最大保留，重复<br><img src="Figures/98b46d0bb819b13145c34910d32fda6c602d7192.jpg" alt=""></p>
+<h4 id="soft-nms">Soft NMS</h4>
+<p>重叠IoU越大，置信度下降越多<br>置信度置为0变为更新IoU&gt;threshold框的置信度<br><img src="Figures/ec46758beec67fa960bc978c8fa18304cceee89d.jpg" alt=""><br>或<br><img src="Figures/89ba0e23898e18e892d209b76c3c2b6602fe3e0e.jpg" alt=""><br>Ref: <a href="https://zhuanlan.zhihu.com/p/42018282">NMS与soft NMS - 知乎</a></p>
+<hr>
+<h2 id="adaptive-nms-refining-pedestrian-detection-in-a-crowd">Adaptive NMS Refining Pedestrian Detection in a Crowd</h2>
+<blockquote>
+<p>密集场景下NMS误删</p>
+<p>通过预测crowd程度动态选择threshold</p>
+</blockquote>
+<p>密集位置提高IoU阈值保留临近框，稀疏位置降低IoU阈值删除冗余框</p>
+<p>对于<strong>每个物体</strong>定义object density <img src="https://latex.codecogs.com/svg.latex?d_{i}:=\max%20_{b_{j}%20\in%20\mathcal{G},%20i%20\neq%20j}%20\operatorname{iou}\left%28b_{i},%20b_{j}\right%29" alt="latex_equ"> </p>
+<p>阈值计算过程 <img src="https://latex.codecogs.com/svg.latex?N_{\mathcal{M}}:=\max%20\left%28N_{t},%20d_{\mathcal{M}}\right%29" alt="latex_equ"></p>
+<p>NMS过程 <img src="https://latex.codecogs.com/svg.latex?s_{i}=\left\{\begin{array}{ll}s_{i},%20&amp;%20\operatorname{iou}\left%28\mathcal{M},%20b_{i}\right%29&lt;N_{\mathcal{M}}%20\\%20s_{i}%20f\left%28\operatorname{iou}\left%28\mathcal{M},%20b_{i}\right%29\right%29,%20&amp;%20\text%20{%20iou%20}\left%28\mathcal{M},%20b_{i}\right%29%20\geq%20N_{\mathcal{M}}\end{array}\right." alt="latex_equ"></p>
+<p>测试时density通过网络<code>density subnet</code>预测，objectness map + bbox预测<code>concat</code>作为输入，<code>5x5</code>卷积(临近物体的信息)</p>
+<p><img src="Figures/image-20200428211808639.png" alt="image-20200428211808639"></p>
+<p><img src="Figures/image-20200428211838035.png" alt="image-20200428211838035"></p>
+<p>在<u>cityperson</u>和<u>crowdhuman</u>密集数据集效果好</p>
+<p>Ref: <a href="https://www.starlg.cn/2019/05/20/Adaptive-NMS/">https://www.starlg.cn/2019/05/20/Adaptive-NMS/</a></p>
+<hr>
+<h2 id="fast-nms">Fast NMS</h2>
+<p><img src="Figures/image-20200510104231573.png" alt="image-20200510104231573"></p>
+<p>按照conf顺序构建IoU矩阵，转为上三角。对<img src="https://latex.codecogs.com/svg.latex?B_i" alt="latex_equ">，如果<img src="https://latex.codecogs.com/svg.latex?\exists%20x_{i,j}&gt;\epsilon" alt="latex_equ">，则去掉<img src="https://latex.codecogs.com/svg.latex?B_i" alt="latex_equ">，速度快</p>
+<p>问题：没有去掉<img src="https://latex.codecogs.com/svg.latex?B_i" alt="latex_equ">时把之后的<img src="https://latex.codecogs.com/svg.latex?x_{i\;\cdot}" alt="latex_equ">失效，「横向传播」，可能多删除框。<img src="https://latex.codecogs.com/svg.latex?B_i" alt="latex_equ">被删除后，之后的框和<img src="https://latex.codecogs.com/svg.latex?B_i" alt="latex_equ">的IoU仍被考虑计算</p>
+<h2 id="cluster-nms">Cluster NMS</h2>
+<p><em>Enhancing Geometric Factors in Model Learning and Inference for Object Detection and Instance Segmentation</em></p>
+<h4 id="cluster-nms">Cluster-NMS</h4>
+<p>改进<code>Fast NMS</code>，增加remove row <img src="https://latex.codecogs.com/svg.latex?B_i" alt="latex_equ">的操作</p>
+<p><img src="Figures/image-20200510121557382.png" alt="image-20200510121557382"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?b^{t-1}" alt="latex_equ">表示<img src="https://latex.codecogs.com/svg.latex?t-1" alt="latex_equ"> iter的NMS indicator，t次iter时对<img src="https://latex.codecogs.com/svg.latex?C^t" alt="latex_equ">进行NMS</p>
+<p><img src="https://latex.codecogs.com/svg.latex?A=diag%28b%29" alt="latex_equ">表示根据上次NMS结果(indicator)，对已经被supressed的框去掉（i行置0，不考虑 <img src="https://latex.codecogs.com/svg.latex?x_{i\;\cdot}" alt="latex_equ"> ，和i框的IoU不计算）</p>
+<p><img src="https://latex.codecogs.com/svg.latex?T=1" alt="latex_equ">同<code>Fast NMS</code>，<img src="https://latex.codecogs.com/svg.latex?T=N" alt="latex_equ">同<code>NMS</code></p>
+<p>没有重合的box可以分成多个<strong>cluster</strong>并行处理</p>
+<h4 id="score-penalty-reweigh-cluster-nms">Score penalty reweigh + Cluster NMS</h4>
+<p>类似<code>Soft NMS</code>中不是直接去除box 「hard」，变成对score进行reweight「soft」，构成<code>Cluster-NMS_S</code></p>
+<p><img src="https://latex.codecogs.com/svg.latex?s_{j}=s_{j}%20\prod\limits_{i}%20e^{-\frac{%28\boldsymbol{A}%20\times%20\boldsymbol{X}%29_{i%20j}^{2}}{\sigma}}" alt="latex_equ"></p>
+<p>j和其他box的IoU越大，score降低越多</p>
+<p>不同于<code>Soft NMS</code>，只会被 <u>和更高conf的box有大IoU</u> 而受到惩罚，由于是上三角，只计算和更靠前box的IoU</p>
+<h4 id="normalized-central-point-distance-cluster-nms">Normalized central point distance + Cluster NMS</h4>
+<p>增加同<code>DIoU</code>类似的中心点距离<img src="https://latex.codecogs.com/svg.latex?D" alt="latex_equ">，构成<code>Cluster-NMS_S+D</code></p>
+<p><img src="https://latex.codecogs.com/svg.latex?s_{j}=s_{j}%20\prod\limits_{i}%20\min%20\{e^{-\frac{%28\boldsymbol{A}%20\times%20\boldsymbol{X}%29_{i%20j}^{2}}{\sigma}}+D^{\beta},%201\}" alt="latex_equ"></p>
+<h4 id="weighted-nms-cluster-nms">Weighted NMS + Cluster NMS</h4>
+<p><code>Weighted NMS</code>根据IoU和conf加权<code>merge</code>重叠框，输出<strong>全新的框</strong>「速度慢」</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{B}=\frac{1}{\sum_{j}%20w_{j}}%20\sum_{\mathcal{B}_{j}%20\in%20\Lambda}%20w_{j}%20\mathcal{B}_{j}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{B}" alt="latex_equ">是加权融合后的全新的框，<img src="https://latex.codecogs.com/svg.latex?\Lambda=\left\{\mathcal{B}_{j}%20|%20x_{i%20j}%20\geq%20\varepsilon,%20\forall%20i\right\}" alt="latex_equ">为重叠框，权重<img src="https://latex.codecogs.com/svg.latex?w_{j}=s_{j}%20I%20o%20U\left%28\mathcal{B},%20\mathcal{B}_{j}\right%29" alt="latex_equ">，<strong>weighted combination</strong></p>
+<p>conf从高到低，找到IoU&gt;threshold的框，根据IoU进行加权求和，得到融合框；再对其他IoU&lt;threshold的框计算 (<a href="https://github.com/sanch7/Weighted-NMS/blob/master/weighted_nms.py">https://github.com/sanch7/Weighted-NMS/blob/master/weighted_nms.py</a>)</p>
+<p><code>Cluster-NMS_W</code>:</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{C&#39;}=\mathcal{s}%20\otimes%20\mathcal{C}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{B}=\mathcal{C&#39;}\times%20\mathcal{B}" alt="latex_equ"></p>
+<p><img src="Figures/image-20200510164152776.png" alt="image-20200510164152776"></p>
+<h2 id="feature-nms-nms-by-learning-feature-embeddings">Feature NMS: NMS by Learning Feature Embeddings</h2>
+<p><strong>密集重叠场景</strong>下，只通过IoU不能判断是否是对同一个物体的预测。<u><strong>增加feature vec 距离判断是否是同一个物体的预测</strong></u>，距离小删除</p>
+<p><img src="Figures/image-20200520113710926.png" alt="image-20200520113710926"></p>
+<p>当IoU无法判断时使用embedding判断是否是同一个物体</p>
+<p>训练使用<u>Margin Loss</u>: <img src="https://latex.codecogs.com/svg.latex?L=\frac{\sum_{i%20\in%20\mathcal{A}}%20\sum_{j%20\in%20\mathcal{A}%20\backslash\{i\}}%20L^{\prime}%28i,%20j%29}{|\mathcal{A}|%20\cdot%28|\mathcal{A}|-1%29}" alt="latex_equ"></p>
+<p>其中，pairwise loss: <img src="https://latex.codecogs.com/svg.latex?L^{\prime}%28i,%20j%29=\left\{\begin{array}{ll}\max%20\left%280,\left\|\mathbf{f}_{i},%20\mathbf{f}_{j}\right\|_{2}-%28\beta-\alpha%29\right%29,%20&amp;%20\text%20{%20if%20}%20o%20b%20j%28i%29=o%20b%20j%28j%29%20\\%20\max%20\left%280,%28\beta+\alpha%29-\left\|\mathbf{f}_{i},%20\mathbf{f}_{j}\right\|_{2}\right%29,%20&amp;%20\text%20{%20otherwise%20}\end{array}\right." alt="latex_equ"></p>
+<hr>
+<h2 id="matrix-nets-a-new-deep-architecture-for-object-detection-xnets-">Matrix Nets: A New Deep Architecture for Object Detection (xNets)</h2>
+<blockquote>
+<p>FPN处理不同大小的物体(特征金字塔)<br>👇本文增加不同长宽比物体的处理 (大小金字塔+aspect ratio金字塔)  </p>
+</blockquote>
+<p><img src="Figures/f96e9e976eb7720d970f1810c8396bf598967513.png" alt=""><br>高度，宽度减半。左下右上剪枝(物体不常见)<br>性能提升不明显，相比CenterNet参数量减少<br>Ref: <a href="https://mp.weixin.qq.com/s?__biz=MzA3MzI4MjgzMw==&amp;mid=2650768067&amp;idx=2&amp;sn=7133cf90287c91b297d857a57bdd6481&amp;chksm=871a46bdb06dcfab0f4092acc96db5b8dc88c34937e7ea1a5e813e7d53a165d2549db0640068&amp;scene=21#wechat_redirect">参数少一半、速度快3倍：最新目标检测核心架构来了</a></p>
+<hr>
+<h2 id="iou-net">IoU-Net</h2>
+<blockquote>
+<p>Add localization confidence in NMS</p>
+<p>可以看作一种精细化的前背景分类（soft）</p>
+</blockquote>
+<h4 id="nms">NMS</h4>
+<ol>
+<li>选择最大classification confidence的框<img src="https://latex.codecogs.com/svg.latex?b_j" alt="latex_equ">，加入集合<img src="https://latex.codecogs.com/svg.latex?S" alt="latex_equ">。</li>
+<li>其他所有不再集合中的框，如果和<img src="https://latex.codecogs.com/svg.latex?b_j" alt="latex_equ">的IoU大于threshold，则删去，简化重复框。</li>
+<li>重复知道没有框，<img src="https://latex.codecogs.com/svg.latex?S" alt="latex_equ">为结果。</li>
+</ol>
+<p>使用分类置信度作为最开始选择框的依据，IoU用于计算分类置信度最大的框和其他框之间的重合度，删去框。</p>
+<p>而IoU-Net使用预测的框和GT的重合IoU，即定位置信度，选择最大作为依据。在inference阶段发挥作用。</p>
+<h4 id="-iou">预测IoU</h4>
+<p><img src="https://images-1256050009.cos.ap-beijing.myqcloud.com/15689424793639.jpg" alt="15689424793639"><br>通过网络预测IoU：使用FPN作为骨干网络，提特征。使用PrRoI pooling替代RoI pooling</p>
+<h4 id="iou-guided-nms">IoU Guided NMS</h4>
+<p><img src="https://images-1256050009.cos.ap-beijing.myqcloud.com/15689426602716.jpg" alt="15689426602716"><br>Rank all detection bbox on localization confidence.</p>
+<p>选择IoU最大的框，其他框重叠大于thres的框只使用他的最大conf score作为IoU最大框的conf「根据IoU选择，最大score修正conf」</p>
+<h4 id="consider-bounding-box-refinement-as-optimization">Consider bounding box refinement as optimization</h4>
+<p><img src="https://images-1256050009.cos.ap-beijing.myqcloud.com/15689722991024.jpg" alt="15689722991024"><br>通过预测IoU并产生梯度，更新bounding box，并通过判断分数的提升和差值来更新边界框<br>// ToRead</p>
+<h4 id="precise-roi-pooling">Precise RoI pooling</h4>
+<p>使用双线性插值来连续化特征图，任意连续坐标(x,y)处都是连续的<br><img src="https://latex.codecogs.com/svg.latex?f%28x,y%29=\Sigma_{i,j}IC%28x,y,i,j%29\times%20w_{i,j}" alt="latex_equ"><br><img src="https://latex.codecogs.com/svg.latex?IC%28x,y,i,j%29=max%280,1-|x-i|%29\times%20max%280,1-|y-j|%29" alt="latex_equ">是插值系数，xy连续，ij为坐标像素点。RoI的一个bin表示为左上角和右下角的坐标对。通过二重积分进行池化（加权求和）<br><img src="https://latex.codecogs.com/svg.latex?PrPool%28\{%28x_1,%20y_1%29,\;%28x_2,%20y_2%29\},\;F%29=\frac{\int_{y_1}^{y_2}\int_{x_1}^{x_2}f%28x,y%29dxdy}{%28x_2-x_1%29\times%20%28y_2-y_1%29}" alt="latex_equ"></p>
+<p><img src="https://images-1256050009.cos.ap-beijing.myqcloud.com/15689719523883.jpg" alt="15689719523883"></p>
+<p>使用ResNet-FPN作为骨干网络，RoI pooling换成PrRoI pooling。同时IoU预测分支可以和R-CNN的分类和边界框回归分支并行工作.</p>
+<hr>
+<h2 id="freeanchor-learning-to-match-anchors-for-visual-object-detection">FreeAnchor: Learning to Match Anchors for Visual Object Detection</h2>
+<p>Related 对于anchor生成/分配/选择的改进：Guided Anchoring, IoU-Net, MetaAnchor <a href="https://www.jianshu.com/p/a24d814613eb">MetaAnchor - 简书</a></p>
+<blockquote>
+<p>对于anchor和object的<u><strong>匹配方式</strong></u>的改进，Learn to match </p>
+</blockquote>
+<p>之前采用IoU最大的anchor进行分配：细长物体，最representative的特征不在物体中心，IoU最大<img src="https://latex.codecogs.com/svg.latex?\neq" alt="latex_equ">最representative</p>
+<p>Assign策略需要满足：</p>
+<ol>
+<li><p><strong>Recall</strong>: 每个物体都能分配一个anchor</p>
+</li>
+<li><p><strong>Precision</strong>: 区分background anchor</p>
+</li>
+<li><p><strong>Compatible NMS</strong>: 高分类分数的anchor有好的localization</p>
+</li>
+</ol>
+<p><strong>matching过程看作MLE过程</strong>，每个物体从bag of anchor中选likelihood probability最大的</p>
+<h4 id="maximum-likelihood-estimation-detector">Maximum Likelihood Estimation分析现有detector</h4>
+<p>训练损失函数，<img src="https://latex.codecogs.com/svg.latex?C_{i,j}" alt="latex_equ">表示j anchor和i 物体匹配「assign using IoU criterion」<img src="https://latex.codecogs.com/svg.latex?\mathcal{L}%28\theta%29=\sum\limits_{a_j\in%20A_+}\sum\limits_{b_i\in%20B}C_{i,j}\mathcal{L}_{i,j}^{cls}%28\theta%29+\beta\sum\limits_{a_j\in%20A_+}\sum\limits_{b_i\in%20B}C_{i,j}\mathcal{L}_{i,j}^{loc}%28\theta%29+\sum\limits_{a_j\in%20A_-}\mathcal{L}_j^{bg}%28\theta%29" alt="latex_equ"></p>
+<p>把训练损失函数看作似然概率</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{aligned}%20\mathcal{P}%28\theta%29%20&amp;=\mathbf{e^{-\mathcal{L}%28\theta%29}}%20\\%20&amp;=\prod_{a_{j}%20\in%20A_{+}}\left%28\sum_{b_{i}%20\in%20B}%20C_{i%20j}%20e^{-\mathcal{L}_{i%20j}^{c%20l_{j}}%28\theta%29}\right%29%20\prod_{a_{j}%20\in%20B_{+}}\left%28\sum_{b_{i}%20\in%20B}%20C_{i%20j}%20e^{-\beta%20\mathcal{L}_{j_{j}}^{l%20o%20c}%28\theta%29}\right%29%20\prod_{a_{j}%20\in%20A_{-}%20\atop%20a_{j}%20\in%20A_{-}}%20\mathcal{P}_{j}^{b%20g}%28\theta%29%20\\%20&amp;=\prod_{a_{j}%20\in%20A_{+}}\left%28\sum_{b_{i}%20\in%20B}%20C_{i%20j}%20\mathcal{P}_{i%20j}^{c%20l%20s}%28\theta%29\right%29%20\prod_{a_{j}%20\in%20A_{+}}\left%28\sum_{b_{i}%20\in%20B}%20C_{i%20j}%20\mathcal{P}_{i%20j}^{l%20o%20c}%28\theta%29\right%29%20\prod_{a_{j}%20\in%20A_{-}}%20\mathcal{P}_{j}^{b%20g}%28\theta%29%20\end{aligned}" alt="latex_equ"></p>
+<p><u>映射非常巧妙，使<img src="https://latex.codecogs.com/svg.latex?[0,+\infty%29" alt="latex_equ">的损失映射到<img src="https://latex.codecogs.com/svg.latex?%280,1]" alt="latex_equ">，而且损失越小，<img src="https://latex.codecogs.com/svg.latex?\mathcal{P}%28\theta%29" alt="latex_equ">越大</u></p>
+<p>因此，最小化损失的目标转换为最大化似然概率</p>
+<h4 id="-detection-">改进detection似然函数</h4>
+<p>目标 recall，precision，compatible</p>
+<p><strong>Recall</strong>：每个obj构建bag of anchor，最大化其中anchor的cls和loc似然。每个obj一定存在一个anchor对应</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_{\text%20{recall}}%28\theta%29=\prod_{i}%20\max%20_{a_{j}%20\in%20A_{i}}\left%28\mathcal{P}_{i%20j}^{c%20l%20s}%28\theta%29%20\mathcal{P}_{i%20j}^{l%20o%20c}%28\theta%29\right%29" alt="latex_equ"></p>
+<p><strong>Precision</strong>：即对anchor区分前背景，把背景anchor分出</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_{\text%20{precision}}%28\theta%29=\prod_{i}\left%281-P\left\{a_{j}%20\in%20A_{-}\right\}\left%281-\mathcal{P}_{j}^{b%20g}%28\theta%29\right%29\right%29" alt="latex_equ"></p>
+<p>其中<img src="https://latex.codecogs.com/svg.latex?P\{a_{j}%20\in%20A_{-}\}=1-\max\limits_iP\{a_j\to%20b_i\}" alt="latex_equ"> 表示anchor j不match任何物体。即anchor不match任何obj概率越高，anchor不属于背景的概率越低(1-)，才可以最大<img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_{\text%20{precision}}%28\theta%29" alt="latex_equ"></p>
+<p><strong>Compatible</strong>: <img src="https://latex.codecogs.com/svg.latex?P\{a_j\to%20b_i\}" alt="latex_equ">表示j anchor匹配i obj概率，NMS按照cls分数选。所以改成loc分数「i j 的IoU」越大，匹配概率越高，P为关于IoU的<u>saturated linear</u>函数。步骤存在于<img src="https://latex.codecogs.com/svg.latex?\mathcal{P}_{\text%20{precision}}%28\theta%29" alt="latex_equ">中</p>
+<p><img src="Figures/2020-02-16-19-21-00-image.png" alt=""></p>
+<p>横坐标为IoU</p>
+<p><strong>似然函数</strong>:    Jointly maximize</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{P}&#39;%28\theta%29=\mathcal{P}_{recall}%28\theta%29\times\mathcal{P}_{precision}%28\theta%29" alt="latex_equ"></p>
+<h4 id="-matching-mechanism">改进似然函数推出Matching Mechanism</h4>
+<p>训练损失<img src="https://latex.codecogs.com/svg.latex?\mathcal{L}&#39;%28\theta%29=-\log\mathcal{P}&#39;%28\theta%29" alt="latex_equ">，使用FocalLoss</p>
+<p>其中有max操作，但随机初始化的网络，所有anchor得分都低，max没有意义</p>
+<p>改用<strong>Mean-max</strong>函数：<img src="https://latex.codecogs.com/svg.latex?\operatorname{Mean}-\max%20%28X%29=\frac{\sum_{x_{j}%20\in%20X}%20\frac{x_{j}}{1-x_{j}}}{\sum_{x_{j}%20\in%20X}%20\frac{1}{1-x_{j}}}" alt="latex_equ"></p>
+<p>训练不充分时接近mean，使用bag中所有anchor训练</p>
+<p>训练充分时接近max，选择最好的anchor训练</p>
+<p><img src="Figures/2020-02-16-20-55-42-image.png" alt=""></p>
+<p>可视化，anchor assign confident (laptop)</p>
+<p><img src="Figures/2020-02-16-20-57-56-image.png" alt=""></p>
+<p>相比baseline有提升3%. 使用ResNeXt-64x4d-101，**为multi-scale</p>
+<p><img src="Figures/2020-02-16-21-02-22-image.png" alt=""></p>
+<p>Ref: <a href="https://www.aminer.cn/research_report/5dedbde4af66005a4482453f?download=false">https://www.aminer.cn/research_report/5dedbde4af66005a4482453f?download=false</a></p>
+<hr>
+<h2 id="-">密集小目标</h2>
+<p>Paper: <u>Benchmark for Generic Product Detection: A strong baseline for Dense Object Detection</u></p>
+<p><img src="Figures/2020-02-21-21-03-09-image.png" alt=""></p>
+<p><u>Scale Match for Tiny Person Detection</u>    [method+dataset]</p>
+<hr>
+<h2 id="aligndet-revisiting-feature-alignment-for-one-stage-object-detection">Aligndet: Revisiting Feature Alignment for One-stage Object Detection</h2>
+<hr>
+<h2 id="fpn-variants">FPN &amp; Variants</h2>
+<p>所有FPN都使用backbone的多层特征图（经过<code>1x1</code>卷积）👇<img src="https://latex.codecogs.com/svg.latex?C_{2..5}" alt="latex_equ"></p>
+<p><img src="Figures/2020-02-22-16-21-13-image.png" alt=""></p>
+<h4 id="top-down-fpn">Top-down FPN</h4>
+<p>经典FPN，从最高层特征(semantic，low-res)经过upsample，和各同一级的特征图相加</p>
+<p>给底层特征引入高层语义信息，益于小目标检测（低层特征图）</p>
+<p><img src="Figures/2020-02-22-16-25-08-image.png" alt=""></p>
+<p>公式<img src="https://latex.codecogs.com/svg.latex?F_{i}^{t}=\mathbf{W}_{i+1}^{\mathrm{t}}%20\otimes\left%28U\left%28F_{i+1}^{t}\right%29+C_{i}\right%29" alt="latex_equ"></p>
+<h4 id="bottom-up-fpn">Bottom-up FPN</h4>
+<p>从最底层(high-res)向上逐次产生FPN层，向高层特征图传播低层的空间细节信息(spatial)</p>
+<p>从低到高，融合「本层特征，高一层特征，上一层FPN」</p>
+<p><img src="Figures/2020-02-22-16-42-55-image.png" alt=""></p>
+<p>公式<img src="https://latex.codecogs.com/svg.latex?F_{i}^{b}=\mathbf{W}_{\mathbf{i}}^{\mathbf{b}}%20\otimes\left%28D\left%28F_{i-1}^{b}\right%29+C_{i}+U\left%28C_{i+1}\right%29\right%29" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?D\to" alt="latex_equ"> downsample, <img src="https://latex.codecogs.com/svg.latex?U\to" alt="latex_equ"> upsample</p>
+<h4 id="fusing-splitting-fpn">Fusing-splitting FPN</h4>
+<p>上述两个FPN顺序逐次产生，先产生的层会对之后层影响(unfair)</p>
+<p>首先分组<strong>fuse</strong>高层和低层的临近两组特征</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\alpha_s=C_4+U%28C_5%29,%20\alpha_l=D%28C_2%29+C_3" alt="latex_equ"></p>
+<p>然后<strong>merge</strong>高层和低层的特征</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\beta_s=\mathbf{W_s^f}\otimes%20\mathrm{cat}%28\alpha_s,D%28\alpha_l%29%29" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\beta_l=\mathbf{W_l^f}\otimes%20\mathrm{cat}%28U%28\alpha_s%29,\alpha_l%29" alt="latex_equ"></p>
+<p>再<strong>split</strong>产生不同层的特征</p>
+<p><img src="https://latex.codecogs.com/svg.latex?F_2^f=U%28\beta_l%29,%20F_3^f=\beta_l" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?F_4^f=\beta_s,%20F_5^f=D%28\beta_s%29" alt="latex_equ"></p>
+<p><img src="Figures/4acfff9cac36f72acc7a0cc716f33e27be53fd47.png" alt=""></p>
+<p>Ref: <em>MFPN: A NOVEL MIXTURE FEATURE PYRAMID NETWORK OF MULTIPLE<br>ARCHITECTURES FOR OBJECT DETECTION</em></p>
+<hr>
+<h2 id="learning-data-augmentation-strategies-for-object-detection">Learning Data Augmentation Strategies for Object Detection</h2>
+<blockquote>
+<p><strong>数据增强</strong>，通过搜索来<strong>combine</strong> transformations</p>
+</blockquote>
+<p>数据增强角度：1. Learn a <strong>generator</strong> to create data 2. Learn a set of <strong>transformations</strong> applied to existing data(本文)</p>
+<p>常用transformer：image mirror，multi-scale training，crop-and-erase (occlude)，cut-and-paste</p>
+<p>自动学习数据集对应的数据增强方式：AutoAugment</p>
+<p>Policy search问题：K=5个sub-policies，每个包含N=2个操作。训练时随机选择sub-policy，顺序执行N。</p>
+<p>操作两个参数「执行操作的概率，操作大小程度」👇</p>
+<p><img src="/Users/mk/Library/Application Support/typora-user-images/image-20200228183031352.png" alt="image-20200228183031352"></p>
+<p><img src="/Users/mk/Library/Application Support/typora-user-images/image-20200228192437277.png" alt="image-20200228192437277"></p>
+<h4 id="transform">Transform</h4>
+<ol>
+<li><strong>Color operations</strong>: 改变颜色通道，obj位置不变 <code>equalize, contrast brightness</code></li>
+<li><strong>Geometric ops</strong>: 改变obj位置和大小 <code>rotate, ShearX, TranslationY</code></li>
+<li><strong>Bounding box ops.</strong>: 只改变bbox内的图像 <code>BBox_Only_Equalize, BBox_Only_Rotate, BBox_Only_FlipLR</code></li>
+</ol>
+<h4 id="results">Results</h4>
+<p><code>Rotate</code> 旋转图片和bbox（<u>best</u>）</p>
+<p><code>Equalize</code> 直方图均衡化(Histogram equalization)，平衡不同灰度像素出现概率，增大对比度👇<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Histogrammeinebnung.png/300px-Histogrammeinebnung.png" alt="A histogram which is zero apart from a central area containing strong peaks is transformed by stretching the peaked area to fill the entire x-axis."></p>
+<p><code>BBox_Only_TranslateY</code> bbox内垂直变换，上下翻转</p>
+<p><img src="/Users/mk/Library/Application Support/typora-user-images/image-20200228190923807.png" alt="image-20200228190923807"></p>
+<hr>
+<h2 id="yolo">YOLO</h2>
+<p>分格子(grids)，每个格子只预测规定数量bbox，只有当gt box的中心点落入grid内时，此grid负责预测这个gt。(<em>潜在问题：密集物体，多个中心点落入同一个grid，漏检</em>)</p>
+<p><img src="Figures/1*4Y1PaY3ZgxKt5w84_0pNxw.jpeg" alt="img"></p>
+<p>网络输出<code>(x,y,w,h), box_confidence_score</code>，表示normalized长宽和<u>中心点</u>offset，以及置信度「表示objectness和位置准确性」</p>
+<p><img src="Figures/1*e0VY6U1_WMF2KBoKQNZvkQ.png" alt="img"></p>
+<p>分grid<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">每个grid产生k个预测<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">保留高box_conf_score预测</p>
+<p>其中<img src="https://latex.codecogs.com/svg.latex?box\_conf\_score=P%28object%29\cdot%20IoU" alt="latex_equ">，<img src="https://latex.codecogs.com/svg.latex?conditional\_class\_prob=P%28class_i|object%29" alt="latex_equ"></p>
+<p><strong>class confidence score</strong>: <img src="https://latex.codecogs.com/svg.latex?box\_conf\_score\times%20cond\_cls\_prob=P%28class_i%29\cdot%20IoU" alt="latex_equ"></p>
+<p>表示分类和回归的准确率</p>
+<p><img src="Figures/1*9ER4GVUtQGVA2Y0skC9OQQ.png" alt="img"></p>
+<p><strong>网络结构</strong>👆：下采样+全连接回归预测</p>
+<p><strong>Loss function</strong>：包括分类损失，位置损失，objectness （<img src="https://latex.codecogs.com/svg.latex?S\times%20S" alt="latex_equ">grids, <img src="https://latex.codecogs.com/svg.latex?B" alt="latex_equ"> bbox each grids ）</p>
+<ol>
+<li><p><strong>Classification loss</strong>：类别，cond_cls_prob</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\sum_{i=0}^{S^{2}}%20\mathbb{1}_{i}^{\mathrm{obj}}%20\sum_{c%20\in%20\text%20{%20classes%20}}\left%28p_{i}%28c%29-\hat{p}_{i}%28c%29\right%29^{2}" alt="latex_equ"></p>
+</li>
+<li><p><strong>Localization loss</strong>：只计算匹配了gt的grid</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{array}{c}%20\lambda_{\text%20{coord%20}}%20\sum_{i=0}^{S^{2}}%20\sum_{j=0}^{B}%20\mathbb{1}_{i%20j}^{\text%20{obj%20}}\left[\left%28x_{i}-\hat{x}_{i}\right%29^{2}+\left%28y_{i}-\hat{y}_{i}\right%29^{2}\right]%20\\%20\quad+\lambda_{\text%20{coord%20}}%20\sum_{i=0}^{S^{2}}%20\sum_{j=0}^{B}%20\mathbb{1}_{i%20j}^{\text%20{obj%20}}\left[%28\sqrt{w_{i}}-\sqrt{\hat{w}_{i}}%29^{2}+%28\sqrt{h_{i}}-\sqrt{\hat{h}_{i}}%29^{2}\right]%20\end{array}" alt="latex_equ"></p>
+<p>where <img src="https://latex.codecogs.com/svg.latex?\mathbb{1}^{\mathrm{obj}}_{ij}=1" alt="latex_equ">表示grid i的第j个box负责预测物体，预测根号来使大小物体误差值对loss函数贡献不同「见平方根函数，x小增长快，x大增长慢。小值误差增长快，大值误差增长慢」</p>
+</li>
+<li><p><strong>Confidence loss</strong>：objectness，区分前背景，使用<img src="https://latex.codecogs.com/svg.latex?box\_conf\_score" alt="latex_equ">即<img src="https://latex.codecogs.com/svg.latex?C_i" alt="latex_equ">计算</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\sum_{i=0}^{S^{2}}%20\sum_{j=0}^{B}%20\mathbb{1}_{i%20j}^{\mathrm{obj}}\left%28C_{i}-\hat{C}_{i}\right%29^{2}" alt="latex_equ">和<img src="https://latex.codecogs.com/svg.latex?\lambda_{\mathrm{noobj}}\sum_{i=0}^{S^{2}}%20\sum_{j=0}^{B}%20\mathbb{1}_{i%20j}^{\mathrm{noobj}}\left%28C_{i}-\hat{C}_{i}\right%29^{2}" alt="latex_equ"></p>
+</li>
+</ol>
+<p>采用<strong>NMS</strong>去掉重复框</p>
+<p><strong>没有RPN可以让网络获得更多context，利于分类(fewer false pos.)</strong></p>
+<h3 id="yolov2">YOLOv2</h3>
+<p><strong>BN</strong>，<strong>高分辨率</strong> (<code>224x224</code>上pretrain backbone，<code>448x448</code>上finetune)</p>
+<p><strong>anchor</strong> box，对grid内B个box增加先验知识，规定初始scale和shape，<u>focus on a specific shape</u>，训练更稳定   👇从左到右</p>
+<p><strong>Anchor机制通过预定义scale和shape来引入先验知识</strong>，bbox has strong patterns</p>
+<p><img src="Figures/image-20200302192028409.png" alt="image-20200302192028409"></p>
+<p>去掉FC层，使用<code>1x1 conv</code>改变通道为<code>7x7x((4+1+20)x5)</code>，grid内5个anchor</p>
+<p><img src="Figures/1*UsqjfoW3sLkmyXKQ0Hyo8A.png" alt="img"></p>
+<p>特征图奇数分辨率：大物体处于图片中心，奇数更好分which grid</p>
+<p>去掉pooling</p>
+<p>anchor<strong>聚类</strong>确定predefined scale&amp;shape（👇数据点之间<u>距离表示IoU</u>大小，位置无意义）每类anchor配置看作一个cluster</p>
+<p><img src="Figures/1*esSmI0UaMr-GrqkUGMg0hA.jpeg" alt="img"></p>
+<p>预测offset <code>[tx, ty, tw, th]</code>减少网络预测取值范围，增大可表示的数值范围👇</p>
+<p><img src="Figures/1*gyOSRA_FDz4Pf5njoUb4KQ.jpeg" alt="img"></p>
+<p>增加<strong>passthrough</strong>，类似skip-connection。和浅层特征图<code>concat</code>预测小目标</p>
+<p><strong>Multi-Scale Training</strong>采用多个尺度训练适应尺度变化 <code>320x320, 352x352,..., 608x608</code> 10个batch的不同尺度图片训练</p>
+<p>使用<strong>DarkNet</strong>作为backbone👇</p>
+<p><img src="Figures/1*NBnDpz8fitkhcdnkgF2bvg.png" alt="img"></p>
+<h3 id="yolo9000">YOLO9000</h3>
+<p>使用hierarichical classification训练yolo，使用WordTree将分类和检测数据集混合训练，分9418类</p>
+<h3 id="yolov3">YOLOv3</h3>
+<p><strong>Multi-label classification</strong>：输出一个label id而不是cat维向量，直接输出exclusive output，使用binary cross-entropy loss训练</p>
+<p>每个目标只匹配一个anchor，没有匹配的anchor不计算cls和loc损失，只计算objectness</p>
+<p><strong>FPN</strong>：<u>在3个尺度的特征图上预测，每个grid预测3个anchor</u>，一共9种anchor配置</p>
+<p><strong>Residual+DarkNet53</strong>：卷积增加skip-connection</p>
+<p><img src="Figures/1*biRYJyCSv-UTbTQTa4Afqg.png" alt="img"></p>
+<p><strong>FPN</strong></p>
+<p><img src="Figures/70.jpeg" alt="img"></p>
+<p>Ref: <a href="https://medium.com/@jonathan_hui/real-time-object-detection-with-yolo-yolov2-28b1b93e2088">https://medium.com/@jonathan_hui/real-time-object-detection-with-yolo-yolov2-28b1b93e2088</a></p>
+<p><a href="https://blog.csdn.net/leviopku/article/details/82660381">https://blog.csdn.net/leviopku/article/details/82660381</a></p>
+<hr>
+<h2 id="iou">IoU</h2>
+<p>评价预测和gt的距离，回归目标。具有<strong>尺度不变形</strong></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{IoU}=\frac{|A\cap%20B|}{|A\cup%20B|}" alt="latex_equ"></p>
+<p>训练<img src="https://latex.codecogs.com/svg.latex?L_{IoU}=1-\operatorname{IoU}" alt="latex_equ"></p>
+<p>问题：</p>
+<ol>
+<li><p><u>没有重叠</u>时 IoU=0，没有梯度无法用IoU loss训练</p>
+</li>
+<li><p>无法很好反映方向不一致时重叠</p>
+<p><img src="Figures/image-20200303220421986.png" alt="image-20200303220421986"></p>
+</li>
+</ol>
+<h4 id="giou-generalized-">GIoU (Generalized)</h4>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{GIoU}=\operatorname{IoU}-\frac{|C\backslash%28A\cap%20B%29|}{|C|}" alt="latex_equ"></p>
+<p>其中<img src="https://latex.codecogs.com/svg.latex?C" alt="latex_equ">为包含A和B的最小凸多边形(enclosing convex)，多为矩形</p>
+<p>A和B不重合时也可以优化，范围<img src="https://latex.codecogs.com/svg.latex?[-1,1]" alt="latex_equ">，不重合时为负数(provide moving direction)</p>
+<p>关注<strong>形状之间缝隙减小</strong>，如👆2,3中缝隙导致GIoU更小</p>
+<p><img src="Figures/v2-a6311e2e892658c42d52b939cb467975_1440w.jpg" alt="img"></p>
+<p>👆&lt;font color=&quot;#00dd00&quot;&gt;不重叠样本&lt;/font&gt;，IoU=0，而GIoU为负值，有梯度</p>
+<p>👆&lt;font color=&quot;#666600&quot;&gt;重叠样本&lt;/font&gt;，不断优化过程中GIoU<img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ">IoU</p>
+<p><u>使用IoU Loss <img src="https://latex.codecogs.com/svg.latex?L_{IoU}" alt="latex_equ">或<img src="https://latex.codecogs.com/svg.latex?L_{GIoU}" alt="latex_equ">训练</u>，相比Sommoth-L1和MSE能带来性能提升</p>
+<h4 id="diou-distance-">DIoU (Distance)</h4>
+<blockquote>
+<p>好的bounding box regres. 标准需要考虑三个因素：<strong>Overlap, Center Distance, Aspect Ratio</strong></p>
+</blockquote>
+<p>直接优化两个框中心点的距离</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{DIoU}=\operatorname{IoU}-\frac{\rho^2%28b,b^{gt}%29}{c^2}" alt="latex_equ"></p>
+<p>其中<img src="https://latex.codecogs.com/svg.latex?\rho" alt="latex_equ"> (or 图中<img src="https://latex.codecogs.com/svg.latex?d" alt="latex_equ">)表示中心点的欧式距离（<strong>L1可以吗？</strong>），<img src="https://latex.codecogs.com/svg.latex?c" alt="latex_equ">表示包含两个框的最小闭包区域的对角线距离👇</p>
+<p><img src="Figures/image-20200303230451277.png" alt="image-20200303230451277"></p>
+<p>相比GIoU：GIoU更强调对齐，只要对齐之后没有梯度，如👇，预测蓝色框和GT绿色对齐，没有缝隙，GIoU term=0「一框包括另一的情况」</p>
+<p><img src="Figures/image-20200303230816475.png" alt="image-20200303230816475"></p>
+<p>而DIoU直接优化框中心的重合，距离近👇</p>
+<p><img src="Figures/image-20200303230931086.png" alt="image-20200303230931086"></p>
+<p><img src="Figures/image-20200303232843528.png" alt="image-20200303232843528"></p>
+<p>👆IoU不重叠loss高，GIoU正垂直水平方向loss高（如👆👆👆图），DIoU较低</p>
+<p>DIoU也可用于NMS中DIoU-NMS</p>
+<h4 id="ciou-complete-">CIoU (Complete)</h4>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{CIoU}=\operatorname{IoU}-\frac{\rho^2%28b,b^{gt}%29}{c^2}-\alpha%20v" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?v=\frac{4}{\pi^2}%28\arctan{\frac{w^{gt}}{h^{gt}}}-\arctan{\frac{w}{h}}%29^2" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\alpha=\frac{v}{%281-\operatorname{IoU}%29+v}" alt="latex_equ"></p>
+<p>使用各种IoU loss训练👇</p>
+<p><img src="Figures/image-20200303233112636.png" alt="image-20200303233112636"></p>
+<hr>
+<h2 id="hambox-delving-into-online-high-quality-anchors-mining-for-detecting-outer-faces">HAMBox: Delving into Online High-quality Anchors Mining for Detecting Outer Faces</h2>
+<blockquote>
+<p>在线匹配，先回归出框，再anchor-target匹配计算loss</p>
+</blockquote>
+<h4 id="-motivation">实验/Motivation</h4>
+<p><img src="Figures/image-20200316221449869.png" alt="image-20200316221449869"></p>
+<p>👆anchor大，每个人脸匹配到的数量变多，但是匹配到人脸占所有人脸中占比下降，人脸recall下降</p>
+<p>👆anchor小，每个人脸匹配到的anchor数量下降，但是大多数人脸都有匹配anchor，人脸recall上升</p>
+<p><img src="Figures/image-20200316221821820.png" alt="image-20200316221821820"></p>
+<p>👆0.35为anchor和target match的threshold，所以89%的anchor都没有被match</p>
+<p><img src="Figures/image-20200316221942813.png" alt="image-20200316221942813"></p>
+<p>==关键== 纵坐标代表face数量</p>
+<p>match 1个anchor的face有2492张，anchor能产生的正确预测框（<code>IoU&gt;0.5</code>，Correctly Predicted Bounding Box）对应的人脸有1968张 <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> <u><em>大多数人脸都能通过anchor产生一个IoU高的预测框</em></u></p>
+<p>预测框经过NMS之后能保留下来的人脸只有343张 <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> <em><u>大多数人脸经过anchor产生的预测框都被NMS过滤掉，而导致这些face漏检</u></em></p>
+<p>但是NMS只删除一个位置重复的框(IoU过大)，对于漏检的人脸，只要有框cover，就一定会保留，NMS后同一个位置至少保留一个score最大的框 <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> NMS后导致漏检的1625张face，产生了CPBB(<code>IoU&gt;0.5</code>)，但是NMS被删掉 <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> IoU足够大，但是得分太低（低于<code>cls_threshold</code>)，NMS时过低score的忽略掉(不会考虑IoU) <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> <em><u>是由于训练的时候此anchor没有match，分类分支训练目标为BG，分类网络降低了score</u></em>「本质为IoU和score的mismatch」</p>
+<p>👆<strong>结论：低IoU而没有被match的anchor也能产生很好的预测框(CPBB)</strong>，需要被match为物体，提高其分类score。这些anchor负责的face多为outer face(难样例)，上述也为outer face漏检的原因（低IoU框被unmatch，无法训练，分类网络不能分类为高分）</p>
+<h4 id="hambox-online-high-quality-anchor-mining-">HAMBox (Online High-quality Anchor Mining)</h4>
+<p>选择大anchor，通过OHAM来进行弥补没有anchor match的face</p>
+<p><strong>传统match策略</strong>：一个face/target首先match所有<u>和它IoU大于threshold</u>的anchor。此后，对于没有anchor和它IoU高于阈值的face，选择<u>和它IoU最大</u>的anchor匹配进行补充（only one）</p>
+<p><strong>OHAM</strong>：1) match所有anchor IoU大于threshold的face，对于没有anchor匹配的face，不进行compensate. 2) 对所有框回归计算bbox. 3) 对所有没有匹配anchor的face，计算预测框和face的IoU，对其进行弥补，<img src="https://latex.codecogs.com/svg.latex?\operatorname{IoU}&gt;\operatorname{threshold&#39;}" alt="latex_equ"> 「没有匹配或匹配数量不足 (K anchor bag)」</p>
+<p><strong>计算Loss学习时，使用回归后的bbox和target匹配，来弥补用原始anchor和target匹配的数量不足问题</strong></p>
+<h4 id="regression-aware-focal-loss">Regression-aware Focal Loss</h4>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{array}{l}%20L_{c%20l%20s}\left%28p_{i}\right%29=\frac{1}{N_{c%20o%20m}}%20\sum_{i%20\in%20\psi}%20F_{i}%20L_{f%20l}\left%28p_{i},%20g_{i}^{*}\right%29%20\\%20+\frac{1}{N_{n%20o%20r%20m}}%20\sum_{i%20\in%20\Omega}\left%281_{\left%28l_{i}^{*}=0\right%29}%201_{\left%28F_{i}&lt;0.5\right%29}+1_{\left%28l_{i}^{*}=1\right%29}\right%29%20L_{f%20l}\left%28p_{i},%20l_{i}^{*}\right%29%20\end{array}" alt="latex_equ"></p>
+<p>其中<img src="https://latex.codecogs.com/svg.latex?\psi" alt="latex_equ">表示弥补的anchor，<img src="https://latex.codecogs.com/svg.latex?N_{com}" alt="latex_equ">为数量，p预测label，g=gt</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\Omega" alt="latex_equ">为matched anchor和unmatched low-quality (IoU&lt;0.5) anchor「即unmatched hq anchor不进行训练，应该hq仍未被match表示<u>简单样例上多余(&gt;K)的anchor</u>」，<img src="https://latex.codecogs.com/svg.latex?N_{norm}" alt="latex_equ">为数量，<img src="https://latex.codecogs.com/svg.latex?F_i" alt="latex_equ">表示IoU，<img src="https://latex.codecogs.com/svg.latex?l_i^*" alt="latex_equ">表示第一次match的label</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{aligned}%20L_{l%20o%20c}\left%28x_{i}\right%29%20&amp;=\frac{1}{N_{c%20o%20m}}%20\sum_{i%20\in%20\psi}%20L_{S%20m%20o%20o%20t%20h%20L%201}\left%28x_{i},%20x_{i}^{*}\right%29%20\\%20&amp;+\frac{1}{N_{n%20o%20r%20m}}%20\sum_{i%20\in%20\Omega}%20L_{S%20m%20o%20o%20t%20h%20L%201}\left%28x_{i},%20x_{i}^{*}\right%29%20\end{aligned}" alt="latex_equ"></p>
+<p><img src="Figures/image-20200316225903344.png" alt="image-20200316225903344"></p>
+<hr>
+<h2 id="-rfb-net-receptive-field-block-net-for-accurate-and-fast-object-detection">[RFB-Net] Receptive Field Block Net for Accurate and Fast Object Detection</h2>
+<blockquote>
+<p>不同感受野，对应不同扩张(dilation)</p>
+<p><strong>不是多尺度的特征图，而是不同感受野大小的特征图</strong></p>
+</blockquote>
+<p><img src="Figures/image-20200321165433401.png" alt="image-20200321165433401"></p>
+<p>之前只变感受野(receptive field/kernel size)，或者只变扩张尺度(ASPP)</p>
+<p>RFB提出感受野和扩张尺度应该同时变化「相互影响」</p>
+<p>👇圈只表示感受野大小，<u>大的kernel对应大的dilate，使感受野更大</u></p>
+<p><img src="Figures/image-20200321165623460.png" alt="image-20200321165623460"></p>
+<p>实现上</p>
+<p><img src="Figures/image-20200321165853355.png" alt="image-20200321165853355"></p>
+<p>使用两个<code>3x3</code>代替<code>5x5</code>。<strong>注意padding，所有都为same size(k=3, p=1)，每个分支产生的特征图大小相同</strong></p>
+<pre><code class="lang-python">self.branch0 = nn.Sequential(
+                Conv(in_planes, 2*inter_planes, kernel_size=1, stride=stride),
+                Conv(2*inter_planes, 2*inter_planes, kernel_size=3, stride=1, padding=visual, dilation=visual, relu=False)
+                )
+        self.branch1 = nn.Sequential(
+                Conv(in_planes, inter_planes, kernel_size=1, stride=1),
+                Conv(inter_planes, 2*inter_planes, kernel_size=(3,3), stride=stride, padding=(1,1)),
+                Conv(2*inter_planes, 2*inter_planes, kernel_size=3, stride=1, padding=visual+1, dilation=visual+1, relu=False)
+                )
+        self.branch2 = nn.Sequential(
+                Conv(in_planes, inter_planes, kernel_size=1, stride=1),
+                Conv(inter_planes, (inter_planes//2)*3, kernel_size=3, stride=1, padding=1),
+                Conv((inter_planes//2)*3, 2*inter_planes, kernel_size=3, stride=stride, padding=1),
+                Conv(2*inter_planes, 2*inter_planes, kernel_size=3, stride=1, padding=2*visual+1, dilation=2*visual+1, relu=False)
+                )
+</code></pre>
+<hr>
+<h2 id="-asff-learning-spatial-fusion-for-single-shot-object-detection">[ASFF] Learning Spatial Fusion for Single Shot Object Detection</h2>
+<blockquote>
+<p>多尺度特征图融合</p>
+</blockquote>
+<p><img src="Figures/image-20200321192646888.png" alt="image-20200321192646888"></p>
+<p>特征首先经过resize，再融合。<em>resize可使用deconv/conv, 插值/pooling</em></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathbf{y}_{i%20j}^{l}=\alpha_{i%20j}^{l}%20\cdot%20\mathbf{x}_{i%20j}^{1%20\rightarrow%20l}+\beta_{i%20j}^{l}%20\cdot%20\mathbf{x}_{i%20j}^{2%20\rightarrow%20l}+\gamma_{i%20j}^{l}%20\cdot%20\mathbf{x}_{i%20j}^{3%20\rightarrow%20l}" alt="latex_equ"></p>
+<p>Where <img src="https://latex.codecogs.com/svg.latex?\alpha_{i%20j}^{l}=\frac{e^{\lambda_{\alpha_{i%20j}}^{l}}}{e^{\lambda_{\alpha_{i%20j}}^{l}}+e^{\lambda_{\beta_{i%20j}}^{l}}+e^{\lambda_{\gamma_{i%20j}}^{l}}}" alt="latex_equ">, etc</p>
+<p>and <img src="https://latex.codecogs.com/svg.latex?\lambda_{\alpha}^l" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\lambda_{\beta}^l" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\lambda_{\gamma}^l" alt="latex_equ"> computed (<code>1x1</code> conv) from <img src="https://latex.codecogs.com/svg.latex?\mathbf{x}^{1\to%20l}" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\mathbf{x}^{2\to%20l}" alt="latex_equ">, <img src="https://latex.codecogs.com/svg.latex?\mathbf{x}^{3\to%20l}" alt="latex_equ"> <strong>respectively</strong></p>
+<p><u>可以看作产生一个框feature pyramid多个特征图都用到，之前只用一个特征图产生一个框</u></p>
+<p><u><strong>训练tricks</strong>：mixup algorithm, cos lr, sync bn, bag of freebies</u></p>
+<hr>
+<h2 id="accelerating-object-detection-by-erasing-background-activation">Accelerating Object Detection by Erasing Background Activation</h2>
+<blockquote>
+<p>Objectness-aware object detection, 产生FG/BG的mask，只对mask区域计算</p>
+</blockquote>
+<p>图片只有小部分有物体，背景区域不需要特征提取计算，<strong>只对前景mask区域计算特征</strong>，分类&amp;回归(次要)出bbox</p>
+<p><img src="Figures/image-20200324230634744.png" alt="image-20200324230634744"></p>
+<p>OMG网络为Fast-SCNN👇</p>
+<p><img src="Figures/20190313161834869.png" alt="img"></p>
+<p>使用element-wise mul来zero-out背景的feature map</p>
+<p>OMG中有<code>argmax</code>操作，为了end2end training，可以1) 使用<code>soft-argmax</code>代替<code>argmax</code>训练 2) 使用<u>surrogate gradient</u>，FP使用<code>argmax</code>，BP时使用<code>soft-argmax</code>代替获得近似梯度</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\operatorname{soft-argmax}%28x%29=\sum_{i}%20\frac{e^{\beta%20x_{i}}}{\sum_{j}%20e^{\beta%20x_{j}}}%20i" alt="latex_equ"></p>
+<p><strong>实验</strong>： 对比MAC，使用不同mask监督</p>
+<hr>
+<h2 id="libra-r-cnn-towards-balanced-learning-for-object-detection">Libra R-CNN: Towards Balanced Learning for Object Detection</h2>
+<blockquote>
+<p>训练方式，不平衡问题：hard example IoU分布不平衡，multi-level/res feature融合不平衡，不同loss样本产生的梯度不平衡</p>
+<p>有梯度反推loss函数设计</p>
+</blockquote>
+<p><strong>目标检测器训练目标</strong>：</p>
+<ol>
+<li>Selected region samples are representative</li>
+<li>Extracted visual feature are fully utilized</li>
+<li>Designed objective function is optimal</li>
+</ol>
+<p>常见训练有三层次的imbalance</p>
+<ol>
+<li><u>Sample-level</u>: hard example需要多训练，但OHEM对噪声敏感</li>
+<li><u>Feature-level</u>: pyramid不同level/res的特征处理深度不同，高层处理多，浅/底层特征处理少</li>
+<li><u>Objective-level</u>: cls/reg两个任务损失函数协调</li>
+</ol>
+<h4 id="iou-balanced-sampling">IoU-balanced Sampling</h4>
+<p>根据样本和GT的IoU，分成多个bin，每个bin均匀采样</p>
+<p>第k bin中每个样本采样概率<img src="https://latex.codecogs.com/svg.latex?p_k=\frac{N}{K}*\frac{1}{M_k},\;k\in[0,K%29" alt="latex_equ"></p>
+<p><u><strong>样本各IoU均匀分布</strong></u></p>
+<h4 id="balanced-feature-pyramid">Balanced Feature Pyramid</h4>
+<p>使用同样深的网络来处理不同层的特征</p>
+<p>resize不同层feature，<strong>取平均</strong>；使用Gaussian <strong>non-local attention</strong>增强融合的特征。在resize会原先的尺度增强multi-scale特征👇</p>
+<p><img src="Figures/image-20200325222120052.png" alt="image-20200325222120052"></p>
+<h4 id="balanced-l1-loss">Balanced L1 Loss</h4>
+<p>==<strong>从梯度的角度考虑</strong>== promoting the crucial gradient: 精确的样本(inlier)的梯度更重要，增强loss小的样本的梯度(<u>正确的梯度，数量少要增强</u>)，减弱loss大样本的梯度(<u>难训练，大梯度导致训练不稳定</u>)👇</p>
+<p><img src="Figures/image-20200325232936319.png" alt="image-20200325232936319"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\frac{\partial%20L_{b}}{\partial%20x}=\left\{\begin{array}{ll}%20\alpha%20\ln%20%28b|x|+1%29%20&amp;%20\text%20{%20if%20}|x|&lt;1%20\\%20\gamma%20&amp;%20\text%20{%20otherwise%20}%20\end{array}\right." alt="latex_equ"></p>
+<p>👆增强小loss的梯度，大loss的梯度clip。<u><strong>大小loss样本产生的梯度平衡</strong></u></p>
+<p><img src="https://latex.codecogs.com/svg.latex?%28x,y%29\to%20Loss%20\to%20gradient" alt="latex_equ">，<strong>通过分析梯度，反推回loss设计</strong></p>
+<p>积分可得👇</p>
+<p><img src="https://latex.codecogs.com/svg.latex?L_{b}%28x%29=\left\{\begin{array}{ll}%20\frac{\alpha}{b}%28b|x|+1%29%20\ln%20%28b|x|+1%29-\alpha|x|%20&amp;%20\text%20{%20if%20}|x|&lt;1%20\\%20\gamma|x|+C%20&amp;%20\text%20{%20otherwise%20}%20\end{array}\right." alt="latex_equ"></p>
+<p>其中<img src="https://latex.codecogs.com/svg.latex?x" alt="latex_equ">为GT和pred的bbox坐标差距，<img src="https://latex.codecogs.com/svg.latex?\gamma" alt="latex_equ">为clip界 (大于<img src="https://latex.codecogs.com/svg.latex?\gamma" alt="latex_equ">，梯度恒定为1)，<img src="https://latex.codecogs.com/svg.latex?\alpha" alt="latex_equ">控制对小loss的梯度增强，<img src="https://latex.codecogs.com/svg.latex?b" alt="latex_equ">为平衡项，求出每个位置loss后mean或sum，即<img src="https://latex.codecogs.com/svg.latex?L_{l%20o%20c}=\sum_{i%20\in\{x,%20y,%20w,%20h\}}%20L_{b}\left%28t_{i}^{u}-v_{i}\right%29" alt="latex_equ">👇</p>
+<p><img src="Figures/image-20200325234316019.png" alt="image-20200325234316019"></p>
+<h4 id="pipeline">Pipeline</h4>
+<p><img src="Figures/image-20200325234511396.png" alt="image-20200325234511396"></p>
+<hr>
+<h2 id="reppoints-point-set-representation-for-object-detection">RepPoints: Point Set Representation for Object Detection</h2>
+<blockquote>
+<p>Bbox特征不对齐问题，提供更好的object表示方法(不是中心点领域卷积)</p>
+<p>Deformable conv升级版，Representative Points</p>
+<p>相比deformable，<strong>直接使用变形后的结果作为预测的bbox位置（or anchor的偏移）</strong>，而不是explicit回归xywh。中心点 + implicit-offsets + wh</p>
+<p><strong>采样点同时用来提取语义对齐的特征，又用来表示物体的几何形态</strong></p>
+</blockquote>
+<p><img src="Figures/v2-a1bdfbed69d464815ddcd8f2ed097e96_1440w.jpg" alt="img"></p>
+<p>大部分为背景，需要选择更representative的点求特征</p>
+<p><img src="Figures/image-20200326202246723.png" alt="image-20200326202246723"></p>
+<p>👆<strong>训练</strong>：分类网络采用deformable conv即可，回归网络先把reppoints表示转为bbox表示(pseudo box)，然后计算和GT的offset（point loss）</p>
+<p>转换方式：1) <u>RepPoint set坐标最值</u> 2) subset坐标最值 3) 使用mean和deviation估计，<img src="https://latex.codecogs.com/svg.latex?\mu" alt="latex_equ">估计中心点，<img src="https://latex.codecogs.com/svg.latex?\sigma" alt="latex_equ">估计尺度(wh)</p>
+<p><img src="Figures/image-20200326201955046.png" alt="image-20200326201955046"></p>
+<p>👆使用网络计算偏移量(offsets over the center points)，得到reppoint的点/物体特征表示<img src="https://latex.codecogs.com/svg.latex?\mathcal{R}=\{%28x_k,y_k%29\}^n_{k=1}" alt="latex_equ">，n个点特征表示sample points/object的特征。学习<img src="https://latex.codecogs.com/svg.latex?\mathcal{R}_{r}=\left\{\left%28x_{k}+\Delta%20x_{k},%20y_{k}+\Delta%20y_{k}\right%29\right\}_{k=1}^{n}" alt="latex_equ"></p>
+<p>👆维护两个RepPoint set，二次refine</p>
+<p><strong>Learned via weak localization supervision from rectangular ground-truth boxes and implicit recognition feedback</strong></p>
+<p><strong>使用基于中心点xy而不是xywh预测bbox，减少hypothesis space，一次只需要预测2D vec，更好训练</strong></p>
+<h4 id="rpdet">RPDet</h4>
+<p><img src="Figures/image-20200326203026414.png" alt="image-20200326203026414"></p>
+<p>👆backbone FPN (多尺度即可解决基于点预测的重合物体问题，同FCOS)</p>
+<p>👆两个分支：locate分支两次计算offset refine，class分支用offset变型卷积（dconv=deformable conv）</p>
+<p>Ref: <a href="https://www.zhihu.com/question/322372759/answer/798327725">https://www.zhihu.com/question/322372759/answer/798327725</a></p>
+<hr>
+<h2 id="learning-rich-features-at-high-speed-for-single-shot-object-detection-lsn-">Learning Rich Features at High-Speed for Single-Shot Object Detection (LSN)</h2>
+<blockquote>
+<p>分类任务预训练和检测任务gap，feature pyramid融合</p>
+<p>Light-weight Scratch Network产生准确底层特征输入FPN</p>
+<p>底层特征高层特征双向传播</p>
+</blockquote>
+<p><img src="Figures/image-20200424161122580.png" alt="image-20200424161122580"></p>
+<h4 id="lsn">LSN</h4>
+<p>输入为downsample后的原始图片，低分辨率浅层网络 <strong>train from scratch</strong></p>
+<p><img src="Figures/image-20200424161326166.png" alt="image-20200424161326166"></p>
+<h4 id="bi-directional-network">Bi-directional Network</h4>
+<p><strong>Bottom-up Scheme</strong>👆👆(b)：<img src="https://latex.codecogs.com/svg.latex?f_{k}=\phi_{k}\left%28\left%28s_{k}%20\otimes%20o_{k}\right%29%20\oplus\left%28w_{k-1}%20f_{k-1}\right%29\right%29" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?s_k" alt="latex_equ">为LSN的特征输出，<img src="https://latex.codecogs.com/svg.latex?o_k" alt="latex_equ">为SSD (baseline)的输出，<img src="https://latex.codecogs.com/svg.latex?f_{k-1}" alt="latex_equ">为上一层特征，<u>cascade依次计算</u></p>
+<p><strong>Top-down Scheme</strong>👆👆(c)：<img src="https://latex.codecogs.com/svg.latex?b_{k}=\gamma_{k}\left%28\sum\left%28W_{k}%20f_{k},%20W_{m%20k}\left%28\sum_{k+1}^{n}%20\mu_{k}\left%28W_{i}%20f_{i}\right%29\right%29\right%29\right%29" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?W_k" alt="latex_equ">为<code>1x1</code>conv降通道，<img src="https://latex.codecogs.com/svg.latex?W_{mk}" alt="latex_equ">为<code>1x1</code> conv融合特征，<u>dense融合所有上层特征(low-res)</u>，<img src="https://latex.codecogs.com/svg.latex?\mu_k" alt="latex_equ">为<code>upsample</code></p>
+<p>先经过bottom-up再top-down，用top-down输出预测</p>
+<h4 id="experiment">Experiment</h4>
+<p><img src="Figures/image-20200424162957980.png" alt="image-20200424162957980"></p>
+<p><img src="Figures/image-20200424163032355.png" alt="image-20200424163032355"></p>
+<hr>
+<h2 id="detection-in-crowded-scenes-one-proposal-multiple-predictions">Detection in Crowded Scenes: One Proposal, Multiple Predictions</h2>
+<blockquote>
+<p>一个anchor/候选框负责预测多个物体。anchor-GT 一对多</p>
+<p>密集行人检测。密集，重叠/遮挡</p>
+</blockquote>
+<p><img src="Figures/image-20200501145202227.png" alt="image-20200501145202227"></p>
+<p>之前：一个anchor负责预测一个物体；提出：<u>一个anchor预测一组</u></p>
+<p>对于一个anchor/prior/proposal <img src="https://latex.codecogs.com/svg.latex?b_i" alt="latex_equ">，预测的GT：<img src="https://latex.codecogs.com/svg.latex?\mathrm{G}\left%28b_{i}\right%29=\left\{g_{j}%20\in%20\mathcal{G}%20|%20\operatorname{IoU}\left%28b_{i},%20g_{j}\right%29%20\geq%20\theta\right\}" alt="latex_equ"></p>
+<p>预测为set：<img src="https://latex.codecogs.com/svg.latex?\mathrm{P}\left%28b_{i}\right%29=\left\{\left%28\mathbf{c}_{i}^{%281%29},%20\mathbf{l}_{i}^{%281%29}\right%29,\left%28\mathbf{c}_{i}^{%282%29},%20\mathbf{l}_{i}^{%282%29}\right%29,%20\ldots,\left%28\mathbf{c}_{i}^{%28K%29},%20\mathbf{l}_{i}^{%28K%29}\right%29\right\}" alt="latex_equ">，<img src="https://latex.codecogs.com/svg.latex?c_i^%28j%29" alt="latex_equ">表示第<img src="https://latex.codecogs.com/svg.latex?i" alt="latex_equ">个anchor预测的第<img src="https://latex.codecogs.com/svg.latex?j" alt="latex_equ">个框的类别和置信度，<img src="https://latex.codecogs.com/svg.latex?l" alt="latex_equ">为位置</p>
+<p>匹配时<img src="https://latex.codecogs.com/svg.latex?K" alt="latex_equ">个物体，但预测时仍可能部分预测结果为背景「<u>至多预测<img src="https://latex.codecogs.com/svg.latex?K" alt="latex_equ">个结果</u>」   <em>是否可以扩展为预测更多？</em></p>
+<p>训练看作最小化预测集和GT集之间的<u>推土机距离</u> <img src="https://latex.codecogs.com/svg.latex?\operatorname{EMD}%28P%28b_i%29,G%28b_i%29%29" alt="latex_equ">，和集合中位置无关，与分布有关</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\mathcal{L}\left%28b_{i}\right%29=\min%20_{\pi%20\in%20\Pi}%20\sum_{k=1}^{K}\left[\mathcal{L}_{c%20l%20s}\left%28\mathbf{c}_{i}^{%28k%29},%20g_{\pi_{k}}\right%29+\mathcal{L}_{r%20e%20g}\left%28\mathbf{l}_{i}^{%28k%29},%20g_{\pi_{k}}\right%29\right]" alt="latex_equ"></p>
+<p>预测的背景box计算<img src="https://latex.codecogs.com/svg.latex?\mathcal{L}_{cls}" alt="latex_equ">不计算<img src="https://latex.codecogs.com/svg.latex?\mathcal{L}_{reg}" alt="latex_equ"></p>
+<h4 id="-earth-mover-s-distance-wasserstein-">推土机距离 (Earth Mover&#39;s Distance, Wasserstein)</h4>
+<p>两个分布间距离：从一个分布变化到另一个分布所需要的最小做功</p>
+<p><img src="Figures/v2-a157b48ccb585193b1074fa09f2e3f83_1440w.jpg" alt="img"></p>
+<p><img src="Figures/screen-shot-2018-03-03-at-6-11-00-pm.png" alt="Screen Shot 2018-03-03 at 6.11.00 PM.png"></p>
+<p>Ref: <a href="https://jeremykun.com/2018/03/05/earthmover-distance/">https://jeremykun.com/2018/03/05/earthmover-distance/</a>, <a href="https://zxth93.github.io/2017/09/27/KL散度JS散度Wasserstein距离/index.html">https://zxth93.github.io/2017/09/27/KL散度JS散度Wasserstein距离</a>, <a href="https://zhuanlan.zhihu.com/p/74075915">https://zhuanlan.zhihu.com/p/74075915</a></p>
+<h4 id="set-nms">Set NMS</h4>
+<p>一个anchor预测的多个物体是unique的，重复预测只可能出现在不同anchor预测集之间</p>
+<p>NMS时增加：如果两个pred-box出自同一个anchor，则不进行抑制</p>
+<h4 id="-">网络架构</h4>
+<p><img src="Figures/image-20200501151947284.png" alt="image-20200501151947284"></p>
+<p><code>FPN</code>，增加<code>RoIAlign</code></p>
+<p>更多预测，可能出现更多False positive，可增加<code>Refinement Module</code>进行二次预测refine</p>
+<p><img src="Figures/image-20200501152246868.png" alt="image-20200501152246868"></p>
+<p>Cityperson, CrowdHuman效果好</p>
+<hr>
+<h2 id="augfpn-improving-multi-scale-feature-learning-for-object-detection">AugFPN: Improving Multi-scale Feature Learning for Object Detection</h2>
+<blockquote>
+<p>FPN改进，特征融合</p>
+</blockquote>
+<p><img src="Figures/image-20200512164653675.png" alt="image-20200512164653675"></p>
+<h4 id="consistent-supervision">Consistent Supervision</h4>
+<p>不同尺度的特征图有semantic gap，增加一个监督信号来限制学习到的特征的差异</p>
+<p>增加多个<u>共享权重</u>的<u>预测头</u>(detect head)对不同尺度特征图(<img src="https://latex.codecogs.com/svg.latex?M_{1..5}" alt="latex_equ">)上的proposal进行<u>预测</u>，加监督信号「<strong>multi-head prediction</strong>」</p>
+<p><img src="https://latex.codecogs.com/svg.latex?\begin{aligned}L_{r%20c%20n%20n}=%20&amp;\lambda\left%28L_{c%20l%20s,%20M}\left%28p_{M},%20t^{*}\right%29+\beta\left[t^{*}&gt;0\right]%20L_{l%20o%20c,%20M}\left%28d_{M},%20b^{*}\right%29\right%29\\%20&amp;+L_{c%20l%20s,%20P}\left%28p,%20t^{*}\right%29+\beta\left[t^{*}&gt;0\right]%20L_{l%20o%20c,%20P}\left%28d,%20b^{*}\right%29\end{aligned}" alt="latex_equ"><br>其中<img src="https://latex.codecogs.com/svg.latex?p_M,\;d_M" alt="latex_equ">表示中间层的预测，<img src="https://latex.codecogs.com/svg.latex?p,\;d" alt="latex_equ">表示最终层的预测，<img src="https://latex.codecogs.com/svg.latex?t^*,\;b^*" alt="latex_equ">表示GT的label和box</p>
+<h4 id="residual-feature-augmentation">Residual Feature Augmentation</h4>
+<p>最高层特征没有上层特征与其融合。采用不同尺度的<img src="https://latex.codecogs.com/svg.latex?C_5" alt="latex_equ">特征进行组合得到<img src="https://latex.codecogs.com/svg.latex?M_6" alt="latex_equ">，并融合到<img src="https://latex.codecogs.com/svg.latex?M_5" alt="latex_equ">中，来<strong>增强最高层特征</strong></p>
+<p><img src="Figures/image-20200512165827388.png" alt="image-20200512165827388"></p>
+<p><code>Ratio-invariant Adaptive Pooling</code>为把<img src="https://latex.codecogs.com/svg.latex?C_5\;@S" alt="latex_equ"> pooling到不同尺度<img src="https://latex.codecogs.com/svg.latex?%28\alpha_1\times%20S,%20\alpha_2\times%20S,...,\alpha_n\times%20S%29" alt="latex_equ"></p>
+<p>其中<code>Adaptive Spatial Fusion</code>为</p>
+<p><img src="Figures/image-20200512165942891.png" alt="image-20200512165942891"></p>
+<h4 id="soft-roi-selection">Soft RoI Selection</h4>
+<p><em>two RoIs with similar sizes may be assigned to different levels</em></p>
+<p>使用<code>ASF</code>对多层特征进行加权融合，作为RoI的特征</p>
+<p>融合为了使anchor-feature的匹配不只是一对一，临近尺度的特征图也<strong>参与预测</strong>，一个样本<strong>学习信号</strong>也传到多个尺度特征图</p>
+<hr>
+<h2 id="learning-to-separate-detecting-heavily-occluded-objects-in-urban-scenes-sge-serial-r-fcn-">Learning to Separate: Detecting Heavily-Occluded Objects in Urban Scenes (SGE/Serial R-FCN)</h2>
+<blockquote>
+<p>密集检测，embeding+NMS (类似feature NMS)，cascade</p>
+</blockquote>
+<p>密集检测中不同类物体的区分和同一类不同物体的区分</p>
+<h4 id="semantics-geometry-embedding-sg-nms">Semantics-Geometry Embedding &amp; SG-NMS</h4>
+<p>增加将检测框映射到隐空间中    <img src="https://latex.codecogs.com/svg.latex?e=\mathbf{s}^T\cdot%20\mathbf{g}" alt="latex_equ">，其中<img src="https://latex.codecogs.com/svg.latex?\mathbf{g}" alt="latex_equ">即为检测框<img src="https://latex.codecogs.com/svg.latex?%28x,y,w,h%29" alt="latex_equ">，<img src="https://latex.codecogs.com/svg.latex?\mathbf{s}" alt="latex_equ">为语义嵌入向量。可以看作<strong>将位置信息以语义信息作为权重进行线性变换得到embed</strong></p>
+<p>box和GT<u>匹配时</u>，对每个proposal <img src="https://latex.codecogs.com/svg.latex?b_i" alt="latex_equ">，选择最大IoU的物体<img src="https://latex.codecogs.com/svg.latex?b^*_j" alt="latex_equ">，如果i和j的IoU大于阈值，则认为i proposal匹配到j物体。<strong>Select max then thresholding</strong></p>
+<p><u>损失函数</u>增加 1. Group：proposal的embed和匹配的物体的embed距离尽可能小 2. Sep：proposal的embed和与其第二大IoU的物体的embed距离增大（<strong>第一大的obj: 距离减小，第二大的obj: 距离增大</strong>）</p>
+<p><u>NMS时</u>，IoU小于阈值<img src="https://latex.codecogs.com/svg.latex?N_T" alt="latex_equ">的保留(Greedy)，大于阈值的计算<strong>embed的距离</strong>(SG)，embed距离大于<img src="https://latex.codecogs.com/svg.latex?\Phi" alt="latex_equ">的保留，<img src="https://latex.codecogs.com/svg.latex?\Phi\propto\operatorname{IoU}" alt="latex_equ">，<strong>IoU大的两个物体需要有更大的embed距离</strong></p>
+<p><img src="Figures/image-20200608203857935.png" alt="image-20200608203857935"></p>
+<p>由于<u>FPN</u>作为backbone有多层，在FPN的每一层进行Greedy+SG NMS。在不同层之间只进行Greedy-NMS，且一个box只会被FPN其他层的box抑制</p>
+<h4 id="serial-r-fcn">Serial R-FCN</h4>
+<p><img src="Figures/image-20200608205053055.png" alt="image-20200608205053055"></p>
+<p>分类分支和SG计算分支在回归分支之后cascade进行。<strong>直接使用refined-box而不是RoI/proposal进行特征提取</strong>，可以使用更高的IoU阈值来训练分类分支</p>
+<p>分类分支辨别回归分支回归的refined-box属于类别/BG。随着回归分支能力增强，BG类别样本数量减少，需要<strong>hard negative mining</strong>。在refined-box上增加<u>随机噪声</u>输入分类分支，作为接近且低于IoU阈值的难负样本</p>
+<p><img src="Figures/image-20200608205026817.png" alt="image-20200608205026817"></p>
+<p>所有分支都采用Position Sensitive RoI-Pooling👇，并增加self-attention👆</p>
+<p><img src="Figures/v2-247cdb8e1305f64996fbd336813ce80e_1440w.jpg" alt="img"></p>
+<p>proposal/RoI区域内的每个位置有一个特征图，在对应特征图上RoI区域内pooling得到结果对应位置的响应值</p>
+<p>Ref: <a href="https://zhuanlan.zhihu.com/p/30867916">https://zhuanlan.zhihu.com/p/30867916</a></p>
+<hr>
+<h2 id="vovnet">VoVNet</h2>
+<p>相比densenet，只进行一次特征融合操作</p>
+<p><img src="Figures/image-20200620214131006.png" alt="image-20200620214131006"></p>
+<p>轻量级网络平DenseNet性能（不明显 <img src="https://latex.codecogs.com/svg.latex?\approx%2033@all" alt="latex_equ">）</p>
+<p>VoVNetV2 增加残差连接和SE-block</p>
+<hr>
+<h2 id="drconv-dynamic-region-aware-convolution">DRConv: Dynamic Region-Aware Convolution</h2>
+<blockquote>
+<p>动态选择卷积核，不是receptive field。类似空域和通道上的attention</p>
+</blockquote>
+<p><strong>空间的动态卷积核</strong>，卷积核区域间不同，区域内共享</p>
+<p>传统卷积核：通道间不同，区域间完全相同（共享卷积核）<img src="https://latex.codecogs.com/svg.latex?W_c" alt="latex_equ"></p>
+<p>局部卷积：不同位置<strong>pixel</strong>卷积核不同<img src="https://latex.codecogs.com/svg.latex?W_{u,v,c}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?Y_{u,%20v,%20o}=\sum_{c=1}^{C}%20X_{u,%20v,%20c}%20*%20W_{u,%20v,%20c}^{%28o%29}%20\quad%28u,%20v%29%20\in%20S" alt="latex_equ"></p>
+<p>DRConv：不同区域卷积核不同，同一个区域内共享<img src="https://latex.codecogs.com/svg.latex?W_{t,c}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?Y_{u,%20v,%20g}=\sum_{c=1}^{C}%20X_{u,%20v,%20c}%20*%20W_{t,%20c}^{%28o%29}%20\quad%28u,%20v%29%20\in%20S_{t}" alt="latex_equ"></p>
+<p>首先学习划分区域mask，之后在每个区域内进行动态卷积</p>
+<h4 id="learnable-guided-mask">Learnable guided mask</h4>
+<p>学习分区，学习卷积核在特征图上的分布</p>
+<p>使用普通卷积计算特征图（kernel空域上相同，通道维不同），<strong>在特征图通道维选择最大的对应的卷积核</strong>作为该位置上使用的卷积核</p>
+<p><img src="Figures/image-20200620223935673.png" alt="image-20200620223935673"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?M_{u,%20v}=\operatorname{argmax}\left%28F_{u,%20v}^{0},%20F_{u,%20v}^{1},%20\cdots,%20F_{u,%20v}^{m-1}\right%29" alt="latex_equ">，m个channel</p>
+<p>选择<strong>通道维</strong>最大的kernel作为区域的kernel (同样大小不同参数)</p>
+<p>由于argmax没有梯度(mask <img src="https://latex.codecogs.com/svg.latex?M_{u,v}" alt="latex_equ">是one-hot向量)，所以反向传播时使用softmax取代<img src="https://latex.codecogs.com/svg.latex?M_{u,v}" alt="latex_equ"></p>
+<p><img src="https://latex.codecogs.com/svg.latex?\hat{F}_{u,%20v}^{j}=\frac{e^{F_{u,%20v}^{j}}}{\sum_{n=0}^{m-1}%20e^{F_{u,%20v}^{n}}}%20\quad%20j%20\in[0,%20m-1]" alt="latex_equ"></p>
+<h4 id="dynamic-filter">Dynamic Filter</h4>
+<p><strong>根据输入特征动态产生</strong>每个区域的卷积核</p>
+<p>类似通道+空域的attention机制（每个区域选择最大通道对应的卷积核）</p>
+<p>性能提升1-2点 Mask-RCNN</p>
+<hr>
+<h1 id="object-detection-tricks">Object Detection Tricks</h1>
+<h2 id="bag-of-freebies-for-training-object-detection-neural-networks">Bag of Freebies for Training Object Detection Neural Networks</h2>
+<h4 id="visually-coherent-image-mixup-training">Visually Coherent Image Mixup Training</h4>
+<p>按照beta分布融合两张图片训练，位置信息不变（geometry preserved）求loss时按照融合占比加权</p>
+<p><img src="Figures/image-20200701100926363.png" alt="image-20200701100926363"></p>
+<p>Beta distribution</p>
+<p><img src="Figures/image-20200701101103962.png" alt="image-20200701101103962"></p>
+<p>效果：解决 <strong>unprecedented</strong> scenes (如屋中大象) 和 very <strong>crowded</strong> object group，但可能会使置信度降低</p>
+<h4 id="label-smoothing">Label Smoothing</h4>
+<p>分类头上使用，增加CE-Loss中错误label的梯度，防止模型too-confident &amp; over-fitting</p>
+<p><img src="https://latex.codecogs.com/svg.latex?q_{i}=\left\{\begin{array}{ll}1-\varepsilon%20&amp;%20\text%20{%20if%20}%20i=y%20\\%20\varepsilon%20/%28K-1%29%20&amp;%20\text%20{%20otherwise%20}\end{array}\right." alt="latex_equ"></p>
+<h4 id="data-augmentation">Data Augmentation</h4>
+<ul>
+<li>Random geometry transformation: crop, expansion, flip, resize</li>
+<li>Random color jittering: brightness, hue, saturation, contrast</li>
+</ul>
+<p>二阶段有proposal的剪裁不需要geometry transformation</p>
+<h4 id="training-schedule">Training Schedule</h4>
+<p>采用cosine学习率，防止step scheduler剧烈变化不稳定</p>
+<p>warm-up防止训练初期梯度爆炸</p>
+<p><img src="Figures/image-20200701102240277.png" alt="image-20200701102240277"></p>
+<h4 id="sync-bn">Sync BN</h4>
+<p>Batch-size 对性能影响大</p>
+<p><code>model = apex.parallel.convert_syncbn_model(model)</code></p>
+<h4 id="multi-scale">Multi-scale</h4>
+<hr>
+<p><strong>Multi-scale training <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> Image level pyramid</strong></p>
+<p><strong>Multi-level/stage feature <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> Feature pyramid</strong></p>
+<p>相比image pyramid，特征金字塔只提取一次图像特征，不同stage输出（多尺度），速度更快</p>
+<p>Multi-scale training + Feature pyramid <img src="https://latex.codecogs.com/svg.latex?\to" alt="latex_equ"> all in</p>
