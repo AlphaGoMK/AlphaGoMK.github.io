@@ -1,3 +1,5 @@
+# 替换 ' ', '(', ')'和公式
+# 不可有一对$$跨多行的公式
 import argparse
 import sys
 
